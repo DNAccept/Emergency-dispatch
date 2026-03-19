@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    networks:
+      - emergency_network
+
+  postgres-auth:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+      POSTGRES_DB: auth_db
+    ports:
+      - "5432:5432"
+    networks:
+      - emergency_network
+    volumes:
+      - pg_auth_data:/var/lib/postgresql/data
+
+  postgres-incident:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: incident_user
+      POSTGRES_PASSWORD: incident_password
+      POSTGRES_DB: incident_db
+    ports:
+      - "5433:5432"
+    networks:
+      - emergency_network
+    volumes:
+      - pg_incident_data:/var/lib/postgresql/data
+
+  mongo-dispatch:
+    image: mongo:6
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: dispatch_user
+      MONGO_INITDB_ROOT_PASSWORD: dispatch_password
+      MONGO_INITDB_DATABASE: dispatch_db
+    ports:
+      - "27017:27017"
+    networks:
+      - emergency_network
+    volumes:
+      - mongo_dispatch_data:/data/db
+
+  mongo-analytics:
+    image: mongo:6
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: analytics_user
+      MONGO_INITDB_ROOT_PASSWORD: analytics_password
+      MONGO_INITDB_DATABASE: analytics_db
+    ports:
+      - "27018:27017"
+    networks:
+      - emergency_network
+    volumes:
+      - mongo_analytics_data:/data/db
+
+  authentication-service:
+    build:
+      context: ./authentication_service
+    ports:
+      - "3001:3000"
+    environment:
+      - PORT=3000
+      - DB_HOST=postgres-auth
+      - DB_PORT=5432
+      - DB_USER=auth_user
+      - DB_PASS=auth_password
+      - DB_NAME=auth_db
+      - JWT_SECRET=supersecretjwtkey
+    depends_on:
+      - postgres-auth
+    networks:
+      - emergency_network
+
+  incident-service:
+    build:
+      context: ./incident_service
+    ports:
+      - "3002:3000"
+    environment:
+      - PORT=3000
+      - DB_HOST=postgres-incident
+      - DB_PORT=5432
+      - DB_USER=incident_user
+      - DB_PASS=incident_password
+      - DB_NAME=incident_db
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+      - DISPATCH_SERVICE_URL=http://dispatch-service:3000
+    depends_on:
+      - postgres-incident
+      - rabbitmq
+    networks:
+      - emergency_network
+
+  dispatch-service:
+    build:
+      context: ./dispatch_service
+    ports:
+      - "3003:3000"
+    environment:
+      - PORT=3000
+      - MONGO_URI=mongodb://dispatch_user:dispatch_password@mongo-dispatch:27017/dispatch_db?authSource=admin
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+    depends_on:
+      - mongo-dispatch
+      - rabbitmq
+    networks:
+      - emergency_network
+
+  analytics-service:
+    build:
+      context: ./analytics_service
+    ports:
+      - "3004:3000"
+    environment:
+      - PORT=3000
+      - MONGO_URI=mongodb://analytics_user:analytics_password@mongo-analytics:27017/analytics_db?authSource=admin
+      - INCIDENT_SERVICE_URL=http://incident-service:3000
+      - DISPATCH_SERVICE_URL=http://dispatch-service:3000
+    depends_on:
+      - mongo-analytics
+    networks:
+      - emergency_network
+
+networks:
+  emergency_network:
+    driver: bridge
+
+volumes:
+  pg_auth_data:
+  pg_incident_data:
+  mongo_dispatch_data:
+  mongo_analytics_data:
