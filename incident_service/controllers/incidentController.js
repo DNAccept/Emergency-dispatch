@@ -36,7 +36,7 @@ exports.createIncident = async (req, res) => {
     let closestVehicle = null;
 
     try {
-      const dispatchUrl = process.env.DISPATCH_SERVICE_URL || 'http://localhost:3003';
+      const dispatchUrl = process.env.DISPATCH_SERVICE_URL || 'http://localhost:4003';
       const response = await axios.get(`${dispatchUrl}/vehicles/available`);
       const availableVehicles = response.data;
 

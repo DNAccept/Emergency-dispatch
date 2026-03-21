@@ -23,7 +23,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'dispatch_service' });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4003;
 app.listen(PORT, () => {
   console.log(`Dispatch Service running on port ${PORT}`);
 });

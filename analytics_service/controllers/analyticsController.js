@@ -16,7 +16,7 @@ exports.getResponseTimes = async (req, res) => {
 
 exports.getIncidentsByRegion = async (req, res) => {
   try {
-    const incidentUrl = process.env.INCIDENT_SERVICE_URL || 'http://localhost:3002';
+    const incidentUrl = process.env.INCIDENT_SERVICE_URL || 'http://localhost:4002';
     const response = await axios.get(`${incidentUrl}/incidents/open`);
     const incidents = response.data;
     

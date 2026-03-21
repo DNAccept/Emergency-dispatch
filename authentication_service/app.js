@@ -17,7 +17,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'authentication_service' });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4001;
 app.listen(PORT, () => {
   console.log(`Authentication Service running on port ${PORT}`);
 });
