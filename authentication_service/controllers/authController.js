@@ -41,7 +41,7 @@ exports.login = async (req, res) => {
     if (!validPass) return res.status(400).json({ message: 'Invalid Email or Password' });
 
     // Generate tokens
-    const accessToken = jwt.sign({ user_id: user.user_id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ user_id: user.user_id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
     const refreshToken = jwt.sign({ user_id: user.user_id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
     refreshTokens.push(refreshToken);
 
@@ -58,7 +58,7 @@ exports.refreshToken = (req, res) => {
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ message: 'Token expired or invalid' });
-    const newAccessToken = jwt.sign({ user_id: user.user_id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const newAccessToken = jwt.sign({ user_id: user.user_id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ accessToken: newAccessToken });
   });
 };
@@ -68,6 +68,18 @@ exports.profile = async (req, res) => {
     const userResult = await pool.query('SELECT user_id, name, email, role, created_at FROM users WHERE user_id = $1', [req.user.user_id]);
     if (userResult.rows.length === 0) return res.status(404).json({ message: 'User not found' });
     res.json(userResult.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getUsers = async (req, res) => {
+  try {
+    if (req.user.role !== 'SYSTEM_ADMIN') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    const usersResult = await pool.query('SELECT user_id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+    res.json(usersResult.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
