@@ -1,0 +1,20 @@
+{
+  "name": "incident_service",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "pg": "^8.11.0",
+    "amqplib": "^0.10.3",
+    "axios": "^1.6.0",
+    "dotenv": "^16.4.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

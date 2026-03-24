@@ -1,0 +1,87 @@
+### Authentication Service (Port 4001)
+
+# 1. Register a new System Admin
+POST http://localhost:4001/auth/register
+Content-Type: application/json
+
+{
+  "name": "System Admin",
+  "email": "admin@emergency.local",
+  "password": "securepassword123",
+  "role": "SYSTEM_ADMIN"
+}
+
+###
+
+# 2. Login
+# @name login
+POST http://localhost:4001/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@emergency.local",
+  "password": "securepassword123"
+}
+
+### Capture Token
+@token = {{login.response.body.accessToken}}
+
+###
+
+# 3. Get Profile (Requires Token)
+GET http://localhost:4001/auth/profile
+Authorization: Bearer {{token}}
+
+###
+
+
+### Dispatch & Tracking Service (Port 4003)
+
+# 4. Register a new Fire Truck
+POST http://localhost:4003/vehicles/register
+Content-Type: application/json
+
+{
+  "service_type": "Fire",
+  "unit_name": "Fire-Engine-01",
+  "current_lat": 40.7128,
+  "current_long": -74.0060,
+  "is_available": true
+}
+
+###
+
+# 5. Get Available Vehicles
+GET http://localhost:4003/vehicles/available
+
+###
+
+
+### Emergency Incident Service (Port 4002)
+
+# 6. Report a Fire Incident
+# This should trigger the Nearest Responder Logic to find the fire truck
+POST http://localhost:4002/incidents
+Content-Type: application/json
+
+{
+  "type": "Fire",
+  "latitude": 40.7130,
+  "longitude": -74.0065
+}
+
+###
+
+# 7. Get Open Incidents
+GET http://localhost:4002/incidents/open
+
+
+### Analytics & Monitoring Service (Port 4004)
+
+# 8. Get Response Times
+GET http://localhost:4004/analytics/response-times
+
+###
+
+# 9. Get Resource Utilization
+GET http://localhost:4004/analytics/resource-utilization
