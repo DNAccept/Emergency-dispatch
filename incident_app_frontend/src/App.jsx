@@ -35,7 +35,7 @@ function createColoredIcon(color) {
   });
 }
 
-const App = ({ token }) => {
+const App = ({ token, role: roleProp }) => {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -46,6 +46,10 @@ const App = ({ token }) => {
   const [submitting, setSubmitting] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const jwt = token || localStorage.getItem('jwt');
+
+  // Only SYSTEM_ADMIN can file new incident reports
+  const canReport = roleProp === 'SYSTEM_ADMIN';
+
 
   const fetchIncidents = () => {
     fetch('http://localhost:3002/incidents/open', { headers: { 'Authorization': `Bearer ${jwt}` } })
@@ -97,18 +101,22 @@ const App = ({ token }) => {
               <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.6rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: 2 }}>Total</div>
             </div>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="btn"
-            style={{ background: showForm ? 'rgba(255,51,51,0.12)' : 'rgba(255,69,0,0.15)', color: showForm ? 'var(--danger)' : 'var(--primary)', border: `1px solid ${showForm ? 'rgba(255,51,51,0.3)' : 'rgba(255,69,0,0.35)'}`, fontFamily: 'var(--font-display)', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.6rem 1.2rem', borderRadius: '2px', cursor: 'pointer', transition: 'all 0.15s' }}
-          >
-            {showForm ? '✕ Cancel' : '⚠ Report Emergency'}
-          </button>
+          {canReport ? (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="btn"
+              style={{ background: showForm ? 'rgba(255,51,51,0.12)' : 'rgba(255,69,0,0.15)', color: showForm ? 'var(--danger)' : 'var(--primary)', border: `1px solid ${showForm ? 'rgba(255,51,51,0.3)' : 'rgba(255,69,0,0.35)'}`, fontFamily: 'var(--font-display)', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.6rem 1.2rem', borderRadius: '2px', cursor: 'pointer', transition: 'all 0.15s' }}
+            >
+              {showForm ? '✕ Cancel' : '⚠ Report Emergency'}
+            </button>
+          ) : (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '2px', padding: '0.4rem 0.9rem' }}>👁 View Only</span>
+          )}
         </div>
       </div>
 
-      {/* Report Form */}
-      {showForm && (
+      {/* Report Form — only for SYSTEM_ADMIN */}
+      {canReport && showForm && (
         <div style={{ background: 'rgba(0,0,0,0.35)', border: `1px solid ${cfg.border}`, borderLeft: `3px solid ${cfg.color}`, borderRadius: '3px', padding: '1.25rem', animation: 'fadeIn 0.2s ease-out' }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: cfg.color, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span>{cfg.icon}</span> New Incident Report — Click the map to pin location
