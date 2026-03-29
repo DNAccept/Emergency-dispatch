@@ -52,7 +52,7 @@ const App = ({ token, role: roleProp }) => {
 
 
   const fetchIncidents = () => {
-    fetch('http://localhost:3002/incidents/open', { headers: { 'Authorization': `Bearer ${jwt}` } })
+    fetch('https://incident-service-9yox.onrender.com/incidents/open', { headers: { 'Authorization': `Bearer ${jwt}` } })
       .then(r => r.json())
       .then(d => { setIncidents(Array.isArray(d) ? d : (d.incidents || [])); setLoading(false); })
       .catch(() => setLoading(false));
@@ -69,7 +69,7 @@ const App = ({ token, role: roleProp }) => {
     if (!draftLocation) { alert('Click on the map to set location.'); return; }
     setSubmitting(true);
     try {
-      const res = await fetch('http://localhost:3002/incidents', {
+      const res = await fetch('https://incident-service-9yox.onrender.com/incidents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({ type: draftType, latitude: draftLocation.lat, longitude: draftLocation.lng, notes: draftNotes, citizen_name: draftCitizen })

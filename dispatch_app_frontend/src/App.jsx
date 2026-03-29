@@ -39,14 +39,14 @@ const App = ({ token }) => {
 
   useEffect(() => {
     if (jwt) {
-      fetch('http://localhost:3001/auth/profile', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      fetch('https://auth-service-spk6.onrender.com/auth/profile', { headers: { 'Authorization': `Bearer ${jwt}` } })
         .then(r => r.json()).then(d => setProfile(d)).catch(console.error);
     }
   }, [jwt]);
 
   useEffect(() => {
     const fetchVehicles = () => {
-      fetch('http://localhost:3003/vehicles/available', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      fetch('https://dispatch-service-tjgl.onrender.com/vehicles/available', { headers: { 'Authorization': `Bearer ${jwt}` } })
         .then(r => r.json())
         .then(d => { setVehicles(Array.isArray(d) ? d : (d.vehicles || [])); setLoading(false); })
         .catch(() => setLoading(false));

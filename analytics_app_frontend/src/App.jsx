@@ -32,9 +32,9 @@ const App = ({ token }) => {
 
   useEffect(() => {
     if (!jwt) return;
-    fetch('http://localhost:3001/auth/profile', { headers: { 'Authorization': `Bearer ${jwt}` } })
+    fetch('https://auth-service-spk6.onrender.com/auth/profile', { headers: { 'Authorization': `Bearer ${jwt}` } })
       .then(r => r.json()).then(d => setProfile(d)).catch(console.error);
-    fetch('http://localhost:3004/analytics/response-times', { headers: { 'Authorization': `Bearer ${jwt}` } })
+    fetch('https://analytics-service-hreo.onrender.com/analytics/response-times', { headers: { 'Authorization': `Bearer ${jwt}` } })
       .then(r => r.json()).then(d => { setMetrics(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [jwt]);

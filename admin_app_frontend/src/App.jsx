@@ -44,7 +44,7 @@ const App = ({ token }) => {
 
   useEffect(() => {
     if (jwt) {
-      fetch('http://localhost:3001/auth/profile', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      fetch('https://auth-service-spk6.onrender.com/auth/profile', { headers: { 'Authorization': `Bearer ${jwt}` } })
         .then(r => r.json()).then(d => setProfile(d)).catch(console.error);
     }
   }, [jwt]);
@@ -58,7 +58,7 @@ const App = ({ token }) => {
   useEffect(() => {
     if (jwt && isSystemAdmin) {
       setUsersLoading(true);
-      fetch('http://localhost:3001/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      fetch('https://auth-service-spk6.onrender.com/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } })
         .then(r => r.json())
         .then(d => { if (Array.isArray(d)) setUsers(d); setUsersLoading(false); })
         .catch(() => setUsersLoading(false));
@@ -79,7 +79,7 @@ const App = ({ token }) => {
     e.preventDefault();
     setRegisterError(''); setRegisterSuccess('');
     try {
-      const res = await fetch('http://localhost:3001/auth/register', {
+      const res = await fetch('https://auth-service-spk6.onrender.com/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify(registerForm)

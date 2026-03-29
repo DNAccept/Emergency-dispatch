@@ -38,7 +38,8 @@ services:
       - pg_incident_data:/var/lib/postgresql/data
 
   mongo-dispatch:
-    image: mongo:6
+    image: mongo:4.4
+    command: mongod --wiredTigerCacheSizeGB 0.25
     environment:
       MONGO_INITDB_ROOT_USERNAME: dispatch_user
       MONGO_INITDB_ROOT_PASSWORD: dispatch_password
@@ -51,7 +52,8 @@ services:
       - mongo_dispatch_data:/data/db
 
   mongo-analytics:
-    image: mongo:6
+    image: mongo:4.4
+    command: mongod --wiredTigerCacheSizeGB 0.25
     environment:
       MONGO_INITDB_ROOT_USERNAME: analytics_user
       MONGO_INITDB_ROOT_PASSWORD: analytics_password

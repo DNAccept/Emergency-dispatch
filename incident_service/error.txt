@@ -1,0 +1,26 @@
+Error initializing database AggregateError [ECONNREFUSED]: 
+    at C:\Users\david\OneDrive\Desktop\School\Mobile and Web Architecture and Design\Course Project\incident_service\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async initDB (C:\Users\david\OneDrive\Desktop\School\Mobile and Web Architecture and Design\Course Project\incident_service\db.js:24:5) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:5433
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 5433
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:5433
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 5433
+    }
+  ]
+}

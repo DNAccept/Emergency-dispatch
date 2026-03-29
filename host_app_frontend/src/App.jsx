@@ -98,7 +98,7 @@ function App() {
   // ─── Fetch profile whenever we get a token ──────────────────────────────────
   useEffect(() => {
     if (!token) { setProfile(null); return; }
-    fetch('http://localhost:3001/auth/profile', {
+    fetch('https://auth-service-spk6.onrender.com/auth/profile', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(r => r.json())
@@ -116,7 +116,7 @@ function App() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const res = await fetch('http://localhost:3001/auth/login', {
+      const res = await fetch('https://auth-service-spk6.onrender.com/auth/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
