@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import federation from '@originjs/vite-plugin-federation'
 
 export default defineConfig({
+  base: 'https://emergency-admin-app.vercel.app/',
   plugins: [
     react(),
     federation({
