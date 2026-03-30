@@ -5,6 +5,9 @@ import L from 'leaflet';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+import healthIcon from './assets/icons/health.svg';
+import policeIcon from './assets/icons/police.svg';
+import fireIcon from './assets/icons/fire.svg';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
@@ -13,19 +16,25 @@ const defaultCenter = [5.6037, -0.1870];
 
 function createVehicleIcon(type, available) {
   const colors = { AMBULANCE: '#00d4aa', POLICE: '#1a6fff', FIRE: '#ff4500' };
+  const icons  = { AMBULANCE: healthIcon, POLICE: policeIcon, FIRE: fireIcon };
   const c = colors[type] || '#888';
+  const icon = icons[type] || healthIcon;
   const opacity = available ? 1 : 0.4;
   return L.divIcon({
     className: '',
-    html: `<div style="width:16px;height:16px;background:${c};border:2px solid rgba(255,255,255,0.8);border-radius:3px;box-shadow:0 0 10px ${c};opacity:${opacity}"></div>`,
-    iconSize: [16, 16], iconAnchor: [8, 8]
+    html: `
+      <div style="width:24px;height:24px;background:#1a1d21;border:2px solid ${c};border-radius:50%;box-shadow:0 0 10px ${c};display:flex;align-items:center;justify-content:center;opacity:${opacity}">
+        <img src="${icon}" style="width:14px;height:14px;filter:brightness(0) invert(1)" />
+      </div>
+    `,
+    iconSize: [24, 24], iconAnchor: [12, 12]
   });
 }
 
 const SERVICE_CONFIG = {
-  AMBULANCE: { color: '#00d4aa', icon: '🚑', label: 'Ambulance' },
-  POLICE:    { color: '#1a6fff', icon: '🚔', label: 'Police' },
-  FIRE:      { color: '#ff4500', icon: '🚒', label: 'Fire' },
+  AMBULANCE: { color: '#00d4aa', icon: healthIcon, label: 'Ambulance' },
+  POLICE:    { color: '#1a6fff', icon: policeIcon, label: 'Police' },
+  FIRE:      { color: '#ff4500', icon: fireIcon,   label: 'Fire' },
 };
 
 const App = ({ token }) => {
@@ -110,8 +119,8 @@ const App = ({ token }) => {
               const cfg = f === 'ALL' ? null : SERVICE_CONFIG[f];
               const active = filter === f;
               return (
-                <button key={f} onClick={() => setFilter(f)} style={{ fontFamily: 'var(--font-display)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.3rem 0.85rem', border: `1px solid ${active ? (cfg?.color || 'rgba(255,255,255,0.3)') : 'rgba(255,255,255,0.08)'}`, borderRadius: '2px', background: active ? `${cfg ? cfg.color + '18' : 'rgba(255,255,255,0.08)'}` : 'transparent', color: active ? (cfg?.color || 'var(--text-main)') : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.12s' }}>
-                  {cfg?.icon && <span style={{ marginRight: '0.3rem' }}>{cfg.icon}</span>}{f}
+                <button key={f} onClick={() => setFilter(f)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-display)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.3rem 0.85rem', border: `1px solid ${active ? (cfg?.color || 'rgba(255,255,255,0.3)') : 'rgba(255,255,255,0.08)'}`, borderRadius: '2px', background: active ? `${cfg ? cfg.color + '18' : 'rgba(255,255,255,0.08)'}` : 'transparent', color: active ? (cfg?.color || 'var(--text-main)') : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.12s' }}>
+                  {cfg?.icon && <img src={cfg.icon} style={{ width: 14, height: 14, filter: active ? 'none' : 'grayscale(1) opacity(0.6)' }} />}{f}
                 </button>
               );
             })}
@@ -130,7 +139,9 @@ const App = ({ token }) => {
                   <Marker key={v.vehicle_id || v._id || Math.random()} position={[lat, lng]} icon={createVehicleIcon(v.service_type, v.is_available)}>
                     <Popup>
                       <div style={{ fontFamily: 'sans-serif', minWidth: 150 }}>
-                        <strong style={{ color: cfg.color }}>{cfg.icon} {v.unit_name || v.type || 'Unit'}</strong><br />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: cfg.color, fontWeight: 700 }}>
+                          <img src={cfg.icon} style={{ width: 16, height: 16 }} /> {v.unit_name || v.type || 'Unit'}
+                        </div>
                         <span style={{ color: '#666', fontSize: '0.8rem' }}>Service: {v.service_type}</span><br />
                         <span style={{ color: v.is_available ? '#00d4aa' : '#ff4500', fontSize: '0.8rem' }}>{v.is_available ? '● Available' : '● Deployed'}</span>
                       </div>
@@ -151,8 +162,8 @@ const App = ({ token }) => {
               const lng = parseFloat(v.current_long || v.longitude || 0);
               return (
                 <div key={v.vehicle_id || v._id || Math.random()} style={{ minWidth: 180, flexShrink: 0, background: 'rgba(0,0,0,0.3)', border: `1px solid rgba(255,255,255,0.05)`, borderTop: `2px solid ${cfg.color}`, borderRadius: '3px', padding: '0.75rem 0.9rem' }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: cfg.color, marginBottom: '0.4rem' }}>
-                    {cfg.icon} {v.unit_name || ('Unit ' + String(v.vehicle_id || v._id || '').substring(0,4))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: cfg.color, marginBottom: '0.4rem' }}>
+                    <img src={cfg.icon} style={{ width: 14, height: 14 }} /> {v.unit_name || ('Unit ' + String(v.vehicle_id || v._id || '').substring(0,4))}
                   </div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-dim)', lineHeight: 1.6 }}>
                     <div>{cfg.label}</div>

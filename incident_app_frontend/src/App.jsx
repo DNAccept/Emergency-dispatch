@@ -5,6 +5,9 @@ import L from 'leaflet';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+import healthIcon from './assets/icons/health.svg';
+import policeIcon from './assets/icons/police.svg';
+import fireIcon from './assets/icons/fire.svg';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
@@ -12,10 +15,10 @@ L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
 const defaultCenter = [5.6037, -0.1870];
 
 const INCIDENT_CONFIG = {
-  Medical:  { color: '#00d4aa', bg: 'rgba(0,212,170,0.1)',  border: 'rgba(0,212,170,0.3)',  icon: '🏥', label: 'Medical Emergency' },
-  Fire:     { color: '#ff4500', bg: 'rgba(255,69,0,0.1)',   border: 'rgba(255,69,0,0.3)',   icon: '🔥', label: 'Fire' },
-  Crime:    { color: '#1a6fff', bg: 'rgba(26,111,255,0.1)', border: 'rgba(26,111,255,0.3)', icon: '🚔', label: 'Crime / Robbery' },
-  Traffic:  { color: '#ffb800', bg: 'rgba(255,184,0,0.1)',  border: 'rgba(255,184,0,0.3)',  icon: '🚗', label: 'Traffic Accident' },
+  Medical:  { color: '#00d4aa', bg: 'rgba(0,212,170,0.1)',  border: 'rgba(0,212,170,0.3)',  icon: healthIcon, label: 'Medical Emergency' },
+  Fire:     { color: '#ff4500', bg: 'rgba(255,69,0,0.1)',   border: 'rgba(255,69,0,0.3)',   icon: fireIcon,   label: 'Fire' },
+  Crime:    { color: '#1a6fff', bg: 'rgba(26,111,255,0.1)', border: 'rgba(26,111,255,0.3)', icon: policeIcon, label: 'Crime / Robbery' },
+  Traffic:  { color: '#ffb800', bg: 'rgba(255,184,0,0.1)',  border: 'rgba(255,184,0,0.3)',  icon: policeIcon, label: 'Traffic Accident' },
 };
 
 const STATUS_COLORS = {
@@ -27,11 +30,17 @@ function MapClickHandler({ setDraftLocation }) {
   return null;
 }
 
-function createColoredIcon(color) {
+function createColoredIcon(color, type) {
+  const icons = { Medical: healthIcon, Fire: fireIcon, Crime: policeIcon, Traffic: policeIcon };
+  const icon = icons[type] || healthIcon;
   return L.divIcon({
     className: '',
-    html: `<div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 0 8px ${color}"></div>`,
-    iconSize: [14, 14], iconAnchor: [7, 7]
+    html: `
+      <div style="width:24px;height:24px;background:#1a1d21;border:2px solid ${color};border-radius:50%;box-shadow:0 0 10px ${color};display:flex;align-items:center;justify-content:center">
+        <img src="${icon}" style="width:14px;height:14px;filter:brightness(0) invert(1)" />
+      </div>
+    `,
+    iconSize: [24, 24], iconAnchor: [12, 12]
   });
 }
 
@@ -119,7 +128,7 @@ const App = ({ token, role: roleProp }) => {
       {canReport && showForm && (
         <div style={{ background: 'rgba(0,0,0,0.35)', border: `1px solid ${cfg.border}`, borderLeft: `3px solid ${cfg.color}`, borderRadius: '3px', padding: '1.25rem', animation: 'fadeIn 0.2s ease-out' }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: cfg.color, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{cfg.icon}</span> New Incident Report — Click the map to pin location
+            <img src={cfg.icon} style={{ width: 14, height: 14 }} /> New Incident Report — Click the map to pin location
           </div>
           <form onSubmit={handleSubmit}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
@@ -131,7 +140,7 @@ const App = ({ token, role: roleProp }) => {
                 <label>Incident Type</label>
                 <select value={draftType} onChange={e => setDraftType(e.target.value)}>
                   {Object.entries(INCIDENT_CONFIG).map(([k, v]) => (
-                    <option key={k} value={k} style={{ color: 'black' }}>{v.icon} {v.label}</option>
+                    <option key={k} value={k} style={{ color: 'black' }}> {v.label}</option>
                   ))}
                 </select>
               </div>
@@ -161,10 +170,12 @@ const App = ({ token, role: roleProp }) => {
             {incidents.map(inc => {
               const c = INCIDENT_CONFIG[inc.type] || INCIDENT_CONFIG.Medical;
               return (
-                <Marker key={inc.incident_id || inc.id || Math.random()} position={[inc.latitude, inc.longitude]} icon={createColoredIcon(c.color)} eventHandlers={{ click: () => setSelectedIncident(inc) }}>
+                <Marker key={inc.incident_id || inc.id || Math.random()} position={[inc.latitude, inc.longitude]} icon={createColoredIcon(c.color, inc.type)} eventHandlers={{ click: () => setSelectedIncident(inc) }}>
                   <Popup>
                     <div style={{ fontFamily: 'sans-serif', minWidth: 160 }}>
-                      <strong style={{ color: c.color }}>{c.icon} {inc.type} Incident</strong><br />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: c.color, fontWeight: 700 }}>
+                        <img src={c.icon} style={{ width: 16, height: 16 }} /> {inc.type} Incident
+                      </div>
                       <span style={{ color: '#666', fontSize: '0.8rem' }}>Status: {inc.status}</span><br />
                       <span style={{ color: '#666', fontSize: '0.8rem' }}>{new Date(inc.reported_at || Date.now()).toLocaleString()}</span>
                     </div>
@@ -173,7 +184,7 @@ const App = ({ token, role: roleProp }) => {
               );
             })}
             {draftLocation && showForm && (
-              <Marker position={[draftLocation.lat, draftLocation.lng]} icon={createColoredIcon(cfg.color)}>
+              <Marker position={[draftLocation.lat, draftLocation.lng]} icon={createColoredIcon(cfg.color, draftType)}>
                 <Popup>📍 New Incident Location</Popup>
               </Marker>
             )}
@@ -197,7 +208,9 @@ const App = ({ token, role: roleProp }) => {
               <div key={inc.incident_id || inc.id} onClick={() => setSelectedIncident(isSelected ? null : inc)}
                 style={{ background: isSelected ? `${c.bg}` : 'rgba(0,0,0,0.25)', border: `1px solid ${isSelected ? c.border : 'rgba(255,255,255,0.05)'}`, borderLeft: `3px solid ${c.color}`, borderRadius: '2px', padding: '0.6rem 0.8rem', cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: c.color }}>{c.icon} {inc.type}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: c.color }}>
+                    <img src={c.icon} style={{ width: 14, height: 14 }} /> {inc.type}
+                  </div>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: statusColor }}>{inc.status}</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--text-dim)' }}>
