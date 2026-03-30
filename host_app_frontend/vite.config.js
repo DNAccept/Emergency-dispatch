@@ -8,10 +8,10 @@ export default defineConfig({
     federation({
       name: 'host_app',
       remotes: {
-        admin_app: 'https://emergency-admin-app.vercel.app/remoteEntry.js',
-        incident_app: 'https://emergency-dispatch-chi.vercel.app/remoteEntry.js',
-        dispatch_app: 'https://dispatchapp-lime.vercel.app/remoteEntry.js',
-        analytics_app: 'https://analytics-app-ecru.vercel.app/remoteEntry.js',
+        admin_app: 'https://emergency-admin-app.vercel.app/assets/remoteEntry.js',
+        incident_app: 'https://emergency-dispatch-chi.vercel.app/assets/remoteEntry.js',
+        dispatch_app: 'https://dispatchapp-lime.vercel.app/assets/remoteEntry.js',
+        analytics_app: 'https://analytics-app-ecru.vercel.app/assets/remoteEntry.js',
       },
       shared: ['react', 'react-dom']
     })
