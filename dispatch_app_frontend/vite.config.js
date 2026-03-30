@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import federation from '@originjs/vite-plugin-federation'
 
 export default defineConfig({
-  base: 'https://dispatchapp-lime.vercel.app/',
+  base: '/',
   plugins: [
     react(),
     federation({
