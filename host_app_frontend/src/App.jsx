@@ -85,6 +85,22 @@ function AccessDenied({ moduleName }) {
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, message: '' }; }
+  static getDerivedStateFromError(error) { return { hasError: true, message: error.message }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '2rem', color: '#ff8080', background: 'rgba(255,51,51,0.1)', border: '1px solid rgba(255,51,51,0.2)', borderRadius: '4px', fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+          <strong>Error loading module:</strong><br/>{this.state.message}
+          <div style={{ marginTop: '1rem', fontSize: '0.75rem', opacity: 0.8 }}>Check browser console for details or check if the sub-app is online.</div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const [token, setToken]               = useState(null);
   const [profile, setProfile]           = useState(null);
@@ -244,22 +260,30 @@ function App() {
 
         {isAllowed && activeModule === 'admin' && (
           <div className="glass-card animate-fade-in" style={{ maxWidth: 1200, margin: '0 auto' }}>
-            <Suspense fallback={<LoadingScreen label="User Management" />}><AdminApp token={token} /></Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingScreen label="User Management" />}><AdminApp token={token} /></Suspense>
+            </ErrorBoundary>
           </div>
         )}
         {isAllowed && activeModule === 'incident' && (
           <div className="glass-card animate-fade-in" style={{ maxWidth: 1400, margin: '0 auto', minHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-            <Suspense fallback={<LoadingScreen label="Incidents" />}><IncidentApp token={token} role={role} /></Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingScreen label="Incidents" />}><IncidentApp token={token} role={role} /></Suspense>
+            </ErrorBoundary>
           </div>
         )}
         {isAllowed && activeModule === 'dispatch' && (
           <div className="glass-card animate-fade-in" style={{ maxWidth: 1400, margin: '0 auto', minHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-            <Suspense fallback={<LoadingScreen label="Dispatch" />}><DispatchApp token={token} /></Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingScreen label="Dispatch" />}><DispatchApp token={token} /></Suspense>
+            </ErrorBoundary>
           </div>
         )}
         {isAllowed && activeModule === 'analytics' && (
           <div className="glass-card animate-fade-in" style={{ maxWidth: 1200, margin: '0 auto' }}>
-            <Suspense fallback={<LoadingScreen label="Analytics" />}><AnalyticsApp token={token} /></Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingScreen label="Analytics" />}><AnalyticsApp token={token} /></Suspense>
+            </ErrorBoundary>
           </div>
         )}
       </div>
