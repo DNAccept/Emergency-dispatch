@@ -9,10 +9,13 @@
   "dependencies": {
     "express": "^4.19.0",
     "mongoose": "^8.2.0",
-    "amqplib": "^0.10.3",
+    "amqplib": "^0.10.9",
     "dotenv": "^16.4.0",
     "cors": "^2.8.5",
     "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
