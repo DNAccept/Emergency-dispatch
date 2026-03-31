@@ -156,7 +156,7 @@ const App = ({ token }) => {
   const fetchData = async () => {
     if (!jwt) return;
     try {
-      const vRes = await fetch('https://dispatch-service-v690.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const vRes = await fetch('https://dispatch-service.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } });
       const vData = await vRes.json();
       setVehicles(Array.isArray(vData) ? vData : []);
 

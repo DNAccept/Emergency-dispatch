@@ -115,7 +115,7 @@ const App = ({ token }) => {
   const fetchData = async () => {
     if (!jwt) return;
     try {
-      const vRes = await fetch('https://dispatch-service-v690.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const vRes = await fetch('https://dispatch-service.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } });
       const vData = await vRes.json();
       if (Array.isArray(vData)) setVehicles(vData);
 
@@ -149,12 +149,22 @@ const App = ({ token }) => {
     return () => clearInterval(i);
   }, [jwt, managedStation]);
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const handleUpdateStation = async (updates) => {
     if (!managedStation) return;
-    const newStats = { ...stationStats, ...updates };
-    setStationStats(newStats);
+    const oldStats = { ...stationStats };
+    let newStats = { ...stationStats, ...updates };
+    
+    // Constraint: Available beds cannot exceed Total beds
+    if (newStats.beds > newStats.total_beds) {
+      newStats.beds = newStats.total_beds;
+    }
+    
+    setStationStats(newStats); 
+    setIsSyncing(true);
     try {
-      await fetch('https://analytics-service-9yox.onrender.com/analytics/stations/update', {
+      const res = await fetch('https://analytics-service-9yox.onrender.com/analytics/stations/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({
@@ -164,7 +174,14 @@ const App = ({ token }) => {
           readiness_level: newStats.readiness
         })
       });
-    } catch (err) { console.error(err); }
+      if (!res.ok) throw new Error('Update failed');
+    } catch (err) { 
+      console.error(err); 
+      setStationStats(oldStats); // Revert on failure
+      alert('Failed to update station resources. Reverting changes.');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleAddStaff = async (e) => {
@@ -224,7 +241,7 @@ const App = ({ token }) => {
     }
 
     try {
-      const res = await fetch('https://dispatch-service-v690.onrender.com/vehicles/register', {
+      const res = await fetch('https://dispatch-service.onrender.com/vehicles/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify(finalVehicle)
@@ -237,7 +254,10 @@ const App = ({ token }) => {
         const d = await res.json();
         alert(`Commissioning failed: ${d.message || d.error || 'Server error'}`);
       }
-    } catch (err) { alert('Network error connecting to dispatch service.'); }
+    } catch (err) { 
+      console.error('Dispatch Registration Error:', err);
+      alert(`Network error connecting to dispatch service: ${err.message}. Please check if the service is active.`); 
+    }
   };
 
   const handleUpdateVehicleStatus = async (id, status) => {
@@ -288,7 +308,10 @@ const App = ({ token }) => {
           
           {/* Resource Stats */}
           <div>
-            <div className="section-sub-label">{managedStation} Overview</div>
+            <div className="section-sub-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>{managedStation} Overview</span>
+              {isSyncing && <span style={{ fontSize: '0.65rem', color: 'var(--primary)', animation: 'pulse 1.5s infinite' }}>● Syncing Changes...</span>}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
               {isHospitalAdmin && (
                  <>
@@ -305,7 +328,7 @@ const App = ({ token }) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
                       <button type="button" onClick={() => handleUpdateStation({ beds: Math.max(0, stationStats.beds - 1) })} className="btn btn-ghost">-</button>
                       <span className="stat-card-value" style={{ fontSize: '1.8rem', color: 'var(--secondary)' }}>{stationStats.beds}</span>
-                      <button type="button" onClick={() => handleUpdateStation({ beds: stationStats.beds + 1 })} className="btn btn-ghost">+</button>
+                      <button type="button" onClick={() => handleUpdateStation({ beds: Math.min(stationStats.total_beds, stationStats.beds + 1) })} className="btn btn-ghost">+</button>
                     </div>
                   </div>
                  </>
