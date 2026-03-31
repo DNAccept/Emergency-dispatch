@@ -84,6 +84,7 @@ function LocationPicker({ position, setPosition }) {
 
 const App = ({ token }) => {
   const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
   const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', role: 'SYSTEM_ADMIN', managed_station: '' });
   const [activeSubTab, setActiveSubTab] = useState('users'); 
@@ -174,6 +175,7 @@ const App = ({ token }) => {
   }, [jwt, managedStation]);
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [diagnostics, setDiagnostics] = useState({ auth: '...', dispatch: '...', analytics: '...', incident: '...' });
 
   const handleLogout = () => {
     localStorage.removeItem('jwt');
