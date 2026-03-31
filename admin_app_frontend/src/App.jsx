@@ -112,6 +112,23 @@ const App = ({ token }) => {
   const isFireAdmin = role === 'FIRE_ADMIN';
   const isSystemAdmin = role === 'SYSTEM_ADMIN';
 
+  const runDiagnostics = async () => {
+    const urls = {
+      auth: 'https://auth-service-spk6.onrender.com/health',
+      dispatch: 'https://dispatch-service.onrender.com/health',
+      analytics: 'https://analytics-service-9yox.onrender.com/health',
+      incident: 'https://incident-service-9yox.onrender.com/health'
+    };
+    const results = {};
+    for (const [key, url] of Object.entries(urls)) {
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        results[key] = r.ok ? 'ONLINE' : 'ERROR';
+      } catch { results[key] = 'OFFLINE'; }
+    }
+    setDiagnostics(results);
+  };
+
   const fetchData = async () => {
     if (!jwt) return;
     try {
@@ -130,17 +147,18 @@ const App = ({ token }) => {
         }
       }
 
-      const pQuery = managedStation ? `?station_name=${encodeURIComponent(managedStation)}` : '';
+      const pQuery = isSystemAdmin ? '' : `?station_name=${encodeURIComponent(managedStation)}&service_type=${isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire'}`;
       const pRes = await fetch(`${analyticsUrl}/personnel${pQuery}`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       const pData = await pRes.json();
       if (Array.isArray(pData)) setPersonnel(pData);
-
-      if (isSystemAdmin) {
-        const uRes = await fetch('https://auth-service-spk6.onrender.com/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } });
-        const uData = await uRes.json();
-        if (Array.isArray(uData)) setUsers(uData);
-      }
-    } catch (err) { console.error('Data fetch error:', err); }
+      
+      runDiagnostics();
+      setLoading(false);
+    } catch (err) { 
+      console.error(err);
+      setLoading(false); 
+      runDiagnostics();
+    }
   };
 
   useEffect(() => {
@@ -151,12 +169,16 @@ const App = ({ token }) => {
 
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const handleLogout = () => {
+    localStorage.removeItem('jwt');
+    window.location.reload();
+  };
+
   const handleUpdateStation = async (updates) => {
     if (!managedStation) return;
     const oldStats = { ...stationStats };
     let newStats = { ...stationStats, ...updates };
     
-    // Constraint: Available beds cannot exceed Total beds
     if (newStats.beds > newStats.total_beds) {
       newStats.beds = newStats.total_beds;
     }
@@ -177,7 +199,7 @@ const App = ({ token }) => {
       if (!res.ok) throw new Error('Update failed');
     } catch (err) { 
       console.error(err); 
-      setStationStats(oldStats); // Revert on failure
+      setStationStats(oldStats);
       alert('Failed to update station resources. Reverting changes.');
     } finally {
       setIsSyncing(false);
@@ -289,7 +311,7 @@ const App = ({ token }) => {
 
   const handleUpdateVehicleStatus = async (id, status) => {
     try {
-      await fetch(`https://dispatch-service-v690.onrender.com/vehicles/${id}/status`, {
+      await fetch(`https://dispatch-service.onrender.com/vehicles/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({ status })
@@ -301,7 +323,7 @@ const App = ({ token }) => {
   const handleRemoveVehicle = async (id) => {
     if (!window.confirm(`Are you sure you want to decommission unit ${id}?`)) return;
     try {
-       await fetch(`https://dispatch-service-v690.onrender.com/vehicles/${id}`, {
+       await fetch(`https://dispatch-service.onrender.com/vehicles/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${jwt}` }
       });
@@ -311,22 +333,39 @@ const App = ({ token }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-
-      {/* Profile Header */}
+      
+      {/* Global Command Header & Diagnostics */}
       <div className="section-header">
         <div>
-          <div className="section-title"><span>Manage</span> Operations</div>
+          <div className="section-title">Command <span>Dashboard</span></div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: 4 }}>
             {role && <RoleBadge role={role} />}
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{managedStation || 'Global Command'}</span>
           </div>
         </div>
-        {profile && !profile.error && (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.04em' }}>{profile.name || profile.user?.name}</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{profile.email || profile.user?.email}</div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          {/* Tactical Diagnostics */}
+          <div style={{ display: 'flex', gap: '0.8rem', background: 'rgba(0,0,0,0.15)', padding: '0.5rem 1rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            {Object.entries(diagnostics).map(([svc, status]) => (
+              <div key={svc} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <div style={{ 
+                  width: 6, height: 6, borderRadius: '50%', 
+                  background: status === 'ONLINE' ? '#00d4aa' : status === 'ERROR' ? '#ffb800' : '#ff3b30', 
+                  boxShadow: status === 'ONLINE' ? '0 0 5px #00d4aa' : 'none' 
+                }} />
+                <span style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{svc}</span>
+              </div>
+            ))}
           </div>
-        )}
+
+          {profile && !profile.error && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', fontWeight: 600, color: 'white' }}>{profile.name || profile.user?.name}</div>
+              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '0.65rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Logout Sessions</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Hospital/Police/Fire Admin Panels */}

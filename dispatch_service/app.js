@@ -4,20 +4,24 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const { connectRabbitMQ } = require('./rabbitmq');
 const vehicleRoutes = require('./routes/vehicles');
+const dispatchRoutes = require('./routes/dispatch');
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json());
 
 // Connect DB
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/dispatch_db')
   .then(() => console.log('MongoDB connected for Dispatch Service'))
-  .catch(err => console.error(err));
+  .catch(err => console.error('MongoDB Connection Error:', err.message));
 
 // Connect RabbitMQ
 connectRabbitMQ();
 
+app.get('/', (req, res) => res.json({ status: 'OK', service: 'dispatch-service', version: '1.2.0' }));
+app.get('/health', (req, res) => res.json({ status: 'OK', service: 'dispatch-service' }));
 app.use('/vehicles', vehicleRoutes);
+app.use('/dispatch', dispatchRoutes);
 
 // --- Real-time Movement Simulation Loop ---
 const Vehicle = require('./models/Vehicle');
