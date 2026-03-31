@@ -143,6 +143,20 @@ const App = ({ token, role: roleProp }) => {
     finally { setSubmitting(false); }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this incident record?')) return;
+    try {
+      const res = await fetch(`https://incident-service-9yox.onrender.com/incidents/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${jwt}` }
+      });
+      if (res.ok) {
+        fetchIncidents();
+        if (selectedIncident?.incident_id === id) setSelectedIncident(null);
+      } else { alert('Failed to delete incident'); }
+    } catch { alert('Connection error'); }
+  };
+
   const getPrimaryType = (types) => {
     if (!types) return 'Medical';
     const tArray = Array.isArray(types) ? types : String(types).split(', ');
@@ -200,8 +214,10 @@ const App = ({ token, role: roleProp }) => {
               <div>
                 <label>Caller Name</label>
                 <input placeholder="Citizen's name" value={draftCitizen} onChange={e => setDraftCitizen(e.target.value)} />
-                <label style={{ marginTop: '0.75rem' }}>GPS Coordinates</label>
-                <input readOnly value={draftLocation ? `${draftLocation.lat.toFixed(5)}, ${draftLocation.lng.toFixed(5)}` : 'Awaiting map click...'} style={{ color: draftLocation ? cfg.color : 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input readOnly value={draftLocation ? `${draftLocation.lat.toFixed(5)}, ${draftLocation.lng.toFixed(5)}` : 'Awaiting map click...'} style={{ color: draftLocation ? cfg.color : 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }} />
+                  {draftLocation && <button type="button" onClick={() => setDraftLocation(null)} style={{ background: 'rgba(255,51,51,0.15)', color: 'var(--danger)', border: '1px solid rgba(255,51,51,0.3)', padding: '0.2rem 0.5rem', borderRadius: '2px', fontSize: '0.65rem', cursor: 'pointer' }}>Clear</button>}
+                </div>
               </div>
               <div>
                 <label>Nature of Emergency (Select All That Apply)</label>
@@ -292,8 +308,15 @@ const App = ({ token, role: roleProp }) => {
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--text-dim)' }}>
                   {parseFloat(inc.latitude).toFixed(4)}, {parseFloat(inc.longitude).toFixed(4)}
                 </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-                  {new Date(inc.reported_at || Date.now()).toLocaleTimeString()}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--text-dim)' }}>
+                    {new Date(inc.reported_at || Date.now()).toLocaleTimeString()}
+                  </div>
+                  {canReport && (
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(inc.incident_id); }} style={{ background: 'transparent', border: 'none', color: 'rgba(255,51,51,0.6)', cursor: 'pointer', fontSize: '0.65rem', textDecoration: 'underline', padding: 0 }}>
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             );

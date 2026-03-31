@@ -120,3 +120,14 @@ exports.updateIncidentStatus = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.deleteIncident = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await pool.query('DELETE FROM incidents WHERE incident_id = $1 RETURNING *', [id]);
+    if (deleted.rows.length === 0) return res.status(404).json({ message: 'Incident not found' });
+    res.json({ message: 'Incident deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
