@@ -41,7 +41,7 @@ L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
 const defaultCenter = [5.6037, -0.1870];
 
 function createVehicleIcon(type, available, isSelected) {
-  const cfg = SERVICE_CONFIG[type] || SERVICE_CONFIG.AMBULANCE;
+  const cfg = SERVICE_CONFIG[type] || SERVICE_CONFIG.Hospital;
   const c = cfg.color;
   const emoji = cfg.emoji;
   const opacity = available ? 1 : 0.4;
@@ -59,9 +59,9 @@ function createVehicleIcon(type, available, isSelected) {
 }
 
 const SERVICE_CONFIG = {
-  AMBULANCE: { color: '#00d4aa', icon: HEALTH_SVG, emoji: '🚑', label: 'Ambulance' },
-  POLICE:    { color: '#1a6fff', icon: POLICE_SVG, emoji: '🚓', label: 'Police' },
-  FIRE:      { color: '#ff4500', icon: FIRE_SVG,   emoji: '🚒', label: 'Fire' },
+  Hospital: { color: '#00d4aa', icon: HEALTH_SVG, emoji: '🚑', label: 'Ambulance' },
+  Police:   { color: '#1a6fff', icon: POLICE_SVG, emoji: '🚓', label: 'Police' },
+  Fire:     { color: '#ff4500', icon: FIRE_SVG,   emoji: '🚒', label: 'Fire' },
 };
 
 const App = ({ token }) => {
@@ -130,15 +130,15 @@ const App = ({ token }) => {
               <span className="badge badge-live">Live Tracking</span>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: '3px', padding: '0.35rem 0.7rem', textAlign: 'center' }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--secondary)' }}>{serviceCount('AMBULANCE')}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--secondary)' }}>{serviceCount('Hospital')}</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.56rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Amb</div>
                 </div>
                 <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(26,111,255,0.2)', borderRadius: '3px', padding: '0.35rem 0.7rem', textAlign: 'center' }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--police-blue)' }}>{serviceCount('POLICE')}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--police-blue)' }}>{serviceCount('Police')}</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.56rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Police</div>
                 </div>
                 <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,69,0,0.2)', borderRadius: '3px', padding: '0.35rem 0.7rem', textAlign: 'center' }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--primary)' }}>{serviceCount('FIRE')}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--primary)' }}>{serviceCount('Fire')}</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.56rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Fire</div>
                 </div>
               </div>
@@ -147,12 +147,13 @@ const App = ({ token }) => {
 
           {/* Filter Bar */}
           <div style={{ display: 'flex', gap: '0.4rem' }}>
-            {['ALL', 'AMBULANCE', 'POLICE', 'FIRE'].map(f => {
+            {['ALL', 'Hospital', 'Police', 'Fire'].map(f => {
               const cfg = f === 'ALL' ? null : SERVICE_CONFIG[f];
               const active = filter === f;
+              const label = cfg ? cfg.label : 'ALL';
               return (
                 <button key={f} onClick={() => setFilter(f)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-display)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.3rem 0.85rem', border: `1px solid ${active ? (cfg?.color || 'rgba(255,255,255,0.3)') : 'rgba(255,255,255,0.08)'}`, borderRadius: '2px', background: active ? `${cfg ? cfg.color + '18' : 'rgba(255,255,255,0.08)'}` : 'transparent', color: active ? (cfg?.color || 'var(--text-main)') : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.12s' }}>
-                  {cfg ? cfg.emoji + ' ' + f : f}
+                  {cfg ? cfg.emoji + ' ' + label : label}
                 </button>
               );
             })}
@@ -170,7 +171,7 @@ const App = ({ token }) => {
                 if (!lat || !lng) return null;
                 const vid = v.vehicle_id || v._id;
                 const isSelected = selectedVehicleId === vid;
-                const cfg = SERVICE_CONFIG[v.service_type] || SERVICE_CONFIG.AMBULANCE;
+                const cfg = SERVICE_CONFIG[v.service_type] || SERVICE_CONFIG.Hospital;
                 return (
                   <Marker key={vid || Math.random()} position={[lat, lng]} icon={createVehicleIcon(v.service_type, v.is_available, isSelected)} eventHandlers={{ click: () => setSelectedVehicleId(vid) }}>
                     <Popup>
