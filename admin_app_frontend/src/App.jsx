@@ -55,14 +55,21 @@ const App = ({ token }) => {
   const isFireAdmin = role === 'FIRE_ADMIN';
   const isSystemAdmin = role === 'SYSTEM_ADMIN';
 
-  useEffect(() => {
+  const fetchUsers = () => {
     if (jwt && isSystemAdmin) {
-      setUsersLoading(true);
+      setUsersLoading(users.length === 0);
       fetch('https://auth-service-spk6.onrender.com/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } })
         .then(r => r.json())
         .then(d => { if (Array.isArray(d)) setUsers(d); setUsersLoading(false); })
         .catch(() => setUsersLoading(false));
     }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+    // Regular polling for real-time updates
+    const interval = setInterval(fetchUsers, 5000);
+    return () => clearInterval(interval);
   }, [jwt, isSystemAdmin]);
 
   const handleAddStaff = (e) => {
@@ -87,6 +94,7 @@ const App = ({ token }) => {
       if (res.ok) {
         setRegisterSuccess(`User "${registerForm.name}" registered successfully.`);
         setRegisterForm({ name: '', email: '', password: '', role: 'SYSTEM_ADMIN' });
+        fetchUsers(); // Update list in real-time
       } else {
         const d = await res.json();
         setRegisterError(d.message || d.error || 'Registration failed');
