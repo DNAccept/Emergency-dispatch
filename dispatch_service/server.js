@@ -17,7 +17,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/dispatch_db
 // Connect RabbitMQ - Backgrounded
 connectRabbitMQ();
 
-app.get('/', (req, res) => res.json({ status: 'OK', service: 'dispatch-service', version: '1.2.5' }));
+app.get('/', (req, res) => res.json({ status: 'OK', service: 'dispatch-service', version: '1.2.6' }));
 app.get('/health', (req, res) => res.json({ status: 'OK', service: 'dispatch-service' }));
 app.use('/vehicles', vehicleRoutes);
 
@@ -44,5 +44,5 @@ setInterval(async () => {
 
 const PORT = process.env.PORT || 4003;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Dispatch Service (v1.2.3) active on port ${PORT}`);
+  console.log(`Dispatch Service (v1.2.6) active on port ${PORT}`);
 });
