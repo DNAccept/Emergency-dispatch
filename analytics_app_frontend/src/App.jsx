@@ -28,24 +28,47 @@ const App = ({ token }) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [vehicles, setVehicles] = useState([]);
+  const [hospitals, setHospitals] = useState([]);
+  const [updatingHosp, setUpdatingHosp] = useState(false);
   const jwt = token || localStorage.getItem('jwt');
+
+  const fetchData = () => {
+    if (!jwt) return;
+    fetch('https://analytics-service-hreo.onrender.com/analytics/response-times', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      .then(r => r.json()).then(d => { setMetrics(d); setLoading(false); }).catch(() => setLoading(false));
+    
+    fetch('https://dispatch-service-v690.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      .then(r => r.json()).then(d => { if (Array.isArray(d)) setVehicles(d); }).catch(console.error);
+
+    fetch('https://analytics-service-hreo.onrender.com/analytics/hospitals', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      .then(r => r.json()).then(d => { if (Array.isArray(d)) setHospitals(d); }).catch(console.error);
+  };
 
   useEffect(() => {
     if (!jwt) return;
     fetch('https://auth-service-spk6.onrender.com/auth/profile', { headers: { 'Authorization': `Bearer ${jwt}` } })
       .then(r => r.json()).then(d => setProfile(d)).catch(console.error);
-    fetch('https://analytics-service-hreo.onrender.com/analytics/response-times', { headers: { 'Authorization': `Bearer ${jwt}` } })
-      .then(r => r.json()).then(d => { setMetrics(d); setLoading(false); })
-      .catch(() => setLoading(false));
+    
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, [jwt]);
 
   const role = profile?.role || profile?.user?.role;
+  const managedStation = profile?.managed_station || profile?.user?.managed_station;
   const isGovt = role === 'GOVT_EXECUTIVE' || role === 'SYSTEM_ADMIN';
   const isPolice = role === 'POLICE_ADMIN';
+  const isHospitalAdmin = role === 'HOSPITAL_ADMIN';
 
+  const fleetAvailable = vehicles.filter(v => v.is_available).length;
+  const healthAvailable = vehicles.filter(v => v.is_available && v.service_type === 'Hospital').length;
+  const fireAvailable = vehicles.filter(v => v.is_available && v.service_type === 'Fire').length;
+  const policeAvailable = vehicles.filter(v => v.is_available && v.service_type === 'Police').length;
+
+  const utilization = vehicles.length > 0 ? `${Math.round(((vehicles.length - fleetAvailable) / vehicles.length) * 100)}%` : '0%';
   const avgTime = metrics?.average_response_time || metrics?.avgTime || '4m 05s';
   const totalIncidents = metrics?.total_incidents || metrics?.count || 106;
-  const utilization = metrics?.utilization || '64%';
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -109,8 +132,12 @@ const App = ({ token }) => {
 
           {/* Executive / General */}
           <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '3px', padding: '1rem' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Response Time Breakdown</div>
-            {[['Police', '6m 12s', 'var(--police-blue)'], ['Ambulance', '5m 48s', 'var(--secondary)'], ['Fire', '4m 30s', 'var(--primary)']].map(([l, v, c]) => (
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Fleet Availability</div>
+            {[
+              ['Hospital Units', `${healthAvailable} Ready`, 'var(--secondary)'],
+              ['Police Units', `${policeAvailable} Ready`, 'var(--police-blue)'],
+              ['Fire Units', `${fireAvailable} Ready`, '#ff4500']
+            ].map(([l, v, c]) => (
               <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                 <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>{l}</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: c }}>{v}</span>
@@ -119,12 +146,56 @@ const App = ({ token }) => {
           </div>
           <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '3px', padding: '1rem' }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Hospital Capacity</div>
-            {[['Korle Bu', '87 / 200', 'var(--secondary)'], ['37 Military', '143 / 180', 'var(--warning)'], ['Ridge Hospital', '62 / 120', 'var(--secondary)']].map(([l, v, c]) => (
-              <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>{l}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: c }}>{v}</span>
+            {hospitals.map(h => (
+              <div key={h.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>{h.name}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: (h.occupied_beds / h.total_beds) > 0.8 ? 'var(--warning)' : 'var(--secondary)' }}>
+                  {h.occupied_beds} / {h.total_beds}
+                </span>
               </div>
             ))}
+            {hospitals.length === 0 && <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', textAlign: 'center', padding: '1rem' }}>No hospital data available</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Hospital Admin Control */}
+      {activeTab === 'overview' && isHospitalAdmin && managedStation && (
+        <div style={{ background: 'rgba(0,212,170,0.05)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: '3px', padding: '1.25rem' }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '1rem' }}>
+             Station Control: {managedStation}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+             <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Update Bed Occupancy</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                   <input 
+                      type="range" 
+                      min="0" 
+                      max={hospitals.find(h => h.name === managedStation)?.total_beds || 200} 
+                      value={hospitals.find(h => h.name === managedStation)?.occupied_beds || 0}
+                      onChange={async (e) => {
+                         const val = parseInt(e.target.value);
+                         try {
+                            await fetch('https://analytics-service-hreo.onrender.com/analytics/hospitals/update', {
+                               method: 'POST',
+                               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+                               body: JSON.stringify({ name: managedStation, occupied_beds: val })
+                            });
+                            fetchData();
+                         } catch (err) { console.error(err); }
+                      }}
+                      style={{ flex: 1 }}
+                   />
+                   <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--secondary)', fontWeight: 600 }}>
+                      {hospitals.find(h => h.name === managedStation)?.occupied_beds || 0} Beds Occupied
+                   </span>
+                </div>
+             </div>
+             <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.1)' }} />
+             <div style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                Updates will reflect on the national metrics instantly.
+             </div>
           </div>
         </div>
       )}

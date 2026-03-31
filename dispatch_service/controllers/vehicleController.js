@@ -122,3 +122,13 @@ exports.dispatchVehicle = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+exports.deleteVehicle = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await Vehicle.deleteOne({ vehicle_id: id });
+    if (result.deletedCount === 0) return res.status(404).json({ message: 'Vehicle not found' });
+    res.json({ message: 'Vehicle removed from fleet successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

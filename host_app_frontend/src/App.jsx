@@ -25,7 +25,7 @@ const ALL_MODULES = [
   { id: 'incident',  label: 'Incidents',  icon: '⚠' },
   { id: 'dispatch',  label: 'Dispatch',   icon: '📡' },
   { id: 'analytics', label: 'Analytics',  icon: '◈' },
-  { id: 'admin',     label: 'User Mgmt',  icon: '⊞' },
+  { id: 'admin',     label: 'Manage',     icon: '⊞' },
 ];
 
 // ─── Role badge colours ───────────────────────────────────────────────────────
@@ -261,7 +261,7 @@ function App() {
         {isAllowed && activeModule === 'admin' && (
           <div className="glass-card animate-fade-in" style={{ maxWidth: 1200, margin: '0 auto' }}>
             <ErrorBoundary>
-              <Suspense fallback={<LoadingScreen label="User Management" />}><AdminApp token={token} /></Suspense>
+              <Suspense fallback={<LoadingScreen label="Manage" />}><AdminApp token={token} /></Suspense>
             </ErrorBoundary>
           </div>
         )}

@@ -24,9 +24,13 @@ const App = ({ token }) => {
   const [profile, setProfile] = useState(null);
   const [showRegister, setShowRegister] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', role: 'SYSTEM_ADMIN' });
+  const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', role: 'SYSTEM_ADMIN', managed_station: '' });
+  const [activeSubTab, setActiveSubTab] = useState('users'); // users | fleet
+  const [vehicles, setVehicles] = useState([]);
+  const [vehicleForm, setVehicleForm] = useState({ vehicle_id: '', service_type: 'Medical', unit_name: '', current_lat: 5.6037, current_long: -0.1870 });
   const [users, setUsers] = useState([]);
-  const [usersLoading, setUsersLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const jwt = token || localStorage.getItem('jwt');
   const [registerSuccess, setRegisterSuccess] = useState('');
   const [registerError, setRegisterError] = useState('');
 
@@ -39,8 +43,6 @@ const App = ({ token }) => {
   const [newOfficer, setNewOfficer] = useState({ name: '', rank: '', status: 'On Duty' });
 
   const [fireStats, setFireStats] = useState({ trucks: 4, activeFires: 1, readiness: 'High' });
-
-  const jwt = token || localStorage.getItem('jwt');
 
   useEffect(() => {
     if (jwt) {
@@ -57,19 +59,25 @@ const App = ({ token }) => {
 
   const fetchUsers = () => {
     if (jwt && isSystemAdmin) {
-      setUsersLoading(users.length === 0);
       fetch('https://auth-service-spk6.onrender.com/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } })
-        .then(r => r.json())
-        .then(d => { if (Array.isArray(d)) setUsers(d); setUsersLoading(false); })
-        .catch(() => setUsersLoading(false));
+        .then(r => r.json()).then(d => { if (Array.isArray(d)) setUsers(d); }).catch(console.error);
+    }
+  };
+
+  const fetchVehicles = () => {
+    if (jwt) {
+      fetch('https://dispatch-service-v690.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } })
+        .then(r => r.json()).then(d => { if (Array.isArray(d)) setVehicles(d); }).catch(console.error);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
-    // Regular polling for real-time updates
-    const interval = setInterval(fetchUsers, 5000);
-    return () => clearInterval(interval);
+    if (jwt) {
+       fetchUsers();
+       fetchVehicles();
+       const i = setInterval(() => { fetchUsers(); fetchVehicles(); }, 4000);
+       return () => clearInterval(i);
+    }
   }, [jwt, isSystemAdmin]);
 
   const handleAddStaff = (e) => {
@@ -93,8 +101,8 @@ const App = ({ token }) => {
       });
       if (res.ok) {
         setRegisterSuccess(`User "${registerForm.name}" registered successfully.`);
-        setRegisterForm({ name: '', email: '', password: '', role: 'SYSTEM_ADMIN' });
-        fetchUsers(); // Update list in real-time
+        setRegisterForm({ name: '', email: '', password: '', role: 'SYSTEM_ADMIN', managed_station: '' });
+        fetchUsers();
       } else {
         const d = await res.json();
         setRegisterError(d.message || d.error || 'Registration failed');
@@ -102,12 +110,31 @@ const App = ({ token }) => {
     } catch { setRegisterError('Network error'); }
   };
 
-  const sectionRow = (label, value, color) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-      <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.88rem', color: 'var(--text-muted)' }}>{label}</span>
-      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: color || 'var(--text-main)' }}>{value}</span>
-    </div>
-  );
+  const handleAddVehicle = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('https://dispatch-service-v690.onrender.com/vehicles/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+        body: JSON.stringify(vehicleForm)
+      });
+      if (res.ok) {
+        setVehicleForm({ vehicle_id: '', service_type: 'Medical', unit_name: '', current_lat: 5.6037, current_long: -0.1870 });
+        fetchVehicles();
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRemoveVehicle = async (id) => {
+    if (!window.confirm(`Are you sure you want to decommission unit ${id}?`)) return;
+    try {
+      const res = await fetch(`https://dispatch-service-v690.onrender.com/vehicles/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${jwt}` }
+      });
+      if (res.ok) fetchVehicles();
+    } catch (err) { console.error(err); }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -115,7 +142,7 @@ const App = ({ token }) => {
       {/* Profile Header */}
       <div className="section-header">
         <div>
-          <div className="section-title">User <span>Management</span></div>
+          <div className="section-title"><span>Manage</span> Operations</div>
           {role && <div style={{ marginTop: 4 }}><RoleBadge role={role} /></div>}
         </div>
         {profile && !profile.error && (
@@ -225,21 +252,46 @@ const App = ({ token }) => {
       {isSystemAdmin && (
         <div>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-            <button onClick={() => setShowRegister(false)} className="btn" style={{ flex: 1, background: !showRegister ? 'rgba(255,69,0,0.15)' : 'rgba(255,255,255,0.04)', color: !showRegister ? 'var(--primary)' : 'var(--text-muted)', border: `1px solid ${!showRegister ? 'rgba(255,69,0,0.35)' : 'rgba(255,255,255,0.08)'}`, fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.6rem', borderRadius: '2px', cursor: 'pointer', transition: 'all 0.15s' }}>
-              ⊞ All Users
+            <button onClick={() => setActiveSubTab('users')} className="btn" style={{ flex: 1, background: activeSubTab === 'users' ? 'rgba(255,69,0,0.15)' : 'rgba(255,255,255,0.04)', color: activeSubTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', border: `1px solid ${activeSubTab === 'users' ? 'rgba(255,69,0,0.35)' : 'rgba(255,255,255,0.08)'}`, fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.6rem', borderRadius: '2px', cursor: 'pointer' }}>
+               Manage Users
             </button>
-            <button onClick={() => setShowRegister(true)} className="btn" style={{ flex: 1, background: showRegister ? 'rgba(255,69,0,0.15)' : 'rgba(255,255,255,0.04)', color: showRegister ? 'var(--primary)' : 'var(--text-muted)', border: `1px solid ${showRegister ? 'rgba(255,69,0,0.35)' : 'rgba(255,255,255,0.08)'}`, fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.6rem', borderRadius: '2px', cursor: 'pointer', transition: 'all 0.15s' }}>
-              + Register User
+            <button onClick={() => setActiveSubTab('fleet')} className="btn" style={{ flex: 1, background: activeSubTab === 'fleet' ? 'rgba(255,69,0,0.15)' : 'rgba(255,255,255,0.04)', color: activeSubTab === 'fleet' ? 'var(--primary)' : 'var(--text-muted)', border: `1px solid ${activeSubTab === 'fleet' ? 'rgba(255,69,0,0.35)' : 'rgba(255,255,255,0.08)'}`, fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.6rem', borderRadius: '2px', cursor: 'pointer' }}>
+               Manage Fleet
             </button>
           </div>
 
-          {showRegister && (
+          {activeSubTab === 'users' && !showRegister && (
+            <div>
+               <button onClick={() => setShowRegister(true)} className="btn btn-secondary" style={{ marginBottom: '1.25rem' }}>+ Register New Administrator</button>
+               <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                System Directory — {users.length} Active Accounts
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Station</th><th>Joined</th></tr></thead>
+                  <tbody>
+                    {users.map(u => (
+                      <tr key={u.user_id}>
+                        <td style={{ fontWeight: 500 }}>{u.name}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>{u.email}</td>
+                        <td><RoleBadge role={u.role} /></td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{u.managed_station || '—'}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-dim)' }}>{new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'users' && showRegister && (
             <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1.5rem' }}>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>New User Registration</div>
               {registerSuccess && <div style={{ background: 'rgba(0,212,170,0.08)', border: '1px solid rgba(0,212,170,0.25)', borderLeft: '3px solid var(--secondary)', padding: '0.7rem 1rem', marginBottom: '1rem', borderRadius: '2px', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--secondary)' }}>✓ {registerSuccess}</div>}
               {registerError && <div style={{ background: 'rgba(255,51,51,0.08)', border: '1px solid rgba(255,51,51,0.25)', borderLeft: '3px solid var(--danger)', padding: '0.7rem 1rem', marginBottom: '1rem', borderRadius: '2px', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: '#ff8080' }}>⚠ {registerError}</div>}
               <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div><label>Full Name</label><input placeholder="e.g. Kofi Mensah" value={registerForm.name} onChange={e => setRegisterForm({ ...registerForm, name: e.target.value })} required /></div>
                   <div><label>Email</label><input type="email" placeholder="user@ghana.gov.gh" value={registerForm.email} onChange={e => setRegisterForm({ ...registerForm, email: e.target.value })} required /></div>
                 </div>
@@ -262,7 +314,13 @@ const App = ({ token }) => {
                     </select>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                {['HOSPITAL_ADMIN','POLICE_ADMIN','FIRE_ADMIN'].includes(registerForm.role) && (
+                  <div>
+                    <label>Station / Facility Managed</label>
+                    <input placeholder="e.g. Korle Bu Hospital" value={registerForm.managed_station} onChange={e => setRegisterForm({ ...registerForm, managed_station: e.target.value })} required />
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
                   <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Register User</button>
                   <button type="button" onClick={() => setShowRegister(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
                 </div>
@@ -270,31 +328,47 @@ const App = ({ token }) => {
             </div>
           )}
 
-          {!showRegister && (
+          {activeSubTab === 'fleet' && (
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                System Directory — {users.length} Users
+              <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '1rem' }}>Commission New Response Unit</div>
+                <form onSubmit={handleAddVehicle} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: '0.75rem', alignItems: 'end' }}>
+                   <div><label>Vehicle ID</label><input placeholder="e.g. AMB-01" value={vehicleForm.vehicle_id} onChange={e => setVehicleForm({ ...vehicleForm, vehicle_id: e.target.value })} required /></div>
+                   <div><label>Unit Name</label><input placeholder="e.g. Alpha One" value={vehicleForm.unit_name} onChange={e => setVehicleForm({ ...vehicleForm, unit_name: e.target.value })} required /></div>
+                   <div>
+                     <label>Type</label>
+                     <select value={vehicleForm.service_type} onChange={e => setVehicleForm({ ...vehicleForm, service_type: e.target.value })}>
+                        <option value="Medical" style={{ color: 'black' }}>Medical (Ambulance)</option>
+                        <option value="Police" style={{ color: 'black' }}>Police (Patrol)</option>
+                        <option value="Fire" style={{ color: 'black' }}>Fire (Truck)</option>
+                     </select>
+                   </div>
+                   <div><label>Base Latitude</label><input type="number" step="0.0001" value={vehicleForm.current_lat} onChange={e => setVehicleForm({ ...vehicleForm, current_lat: parseFloat(e.target.value) })} /></div>
+                   <button type="submit" className="btn btn-secondary">＋ Commission</button>
+                </form>
               </div>
-              {usersLoading ? (
-                <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-dim)' }}>Loading...</div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table>
-                    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
-                    <tbody>
-                      {users.map(u => (
-                        <tr key={u.user_id}>
-                          <td style={{ fontWeight: 500 }}>{u.name}</td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>{u.email}</td>
-                          <td><RoleBadge role={u.role} /></td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-dim)' }}>{new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</td>
-                        </tr>
-                      ))}
-                      {users.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', padding: '2rem' }}>No users found</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Active Fleet — {vehicles.length} Units</div>
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead><tr><th>ID</th><th>Name</th><th>Service</th><th>Status</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {vehicles.map(v => (
+                      <tr key={v.vehicle_id}>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{v.vehicle_id}</td>
+                        <td style={{ fontWeight: 500 }}>{v.unit_name}</td>
+                        <td>
+                           <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: '10px', background: v.service_type === 'Fire' ? 'rgba(255,69,0,0.1)' : v.service_type === 'Police' ? 'rgba(26,111,255,0.1)' : 'rgba(0,212,170,0.1)', color: v.service_type === 'Fire' ? '#ff6a3d' : v.service_type === 'Police' ? '#5599ff' : '#00d4aa' }}>
+                             {v.service_type === 'Hospital' ? 'Medical' : v.service_type}
+                           </span>
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: v.is_available ? 'var(--secondary)' : 'var(--warning)' }}>{v.is_available ? 'Available' : 'Busy'}</td>
+                        <td><button onClick={() => handleRemoveVehicle(v.vehicle_id)} className="btn btn-ghost" style={{ color: 'var(--danger)', padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}>Decommission</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
