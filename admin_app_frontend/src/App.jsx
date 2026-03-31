@@ -187,8 +187,13 @@ const App = ({ token }) => {
   const handleAddStaff = async (e) => {
     e.preventDefault();
     if (!newStaff.name || !managedStation) return;
+    const oldPersonnel = [...personnel];
+    const optimisticStaff = { ...newStaff, _id: Date.now().toString(), station_name: managedStation, service_type: isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire' };
+    
+    setPersonnel([...personnel, optimisticStaff]);
+    setIsSyncing(true);
     try {
-      await fetch('https://analytics-service-9yox.onrender.com/analytics/personnel/register', {
+      const res = await fetch('https://analytics-service-9yox.onrender.com/analytics/personnel/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({
@@ -197,19 +202,41 @@ const App = ({ token }) => {
           service_type: isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire'
         })
       });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || d.error || 'Server error');
+      }
       setNewStaff({ name: '', role: '', status: 'Available' });
+      alert(`Staff member ${newStaff.name} registered successfully!`);
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error('Personnel Registration Error:', err);
+      setPersonnel(oldPersonnel);
+      alert(`Failed to register personnel: ${err.message}. Please try again.`); 
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleRemoveStaff = async (id) => {
+    if (!window.confirm('Are you sure you want to remove this staff member?')) return;
+    const oldPersonnel = [...personnel];
+    setPersonnel(personnel.filter(p => p._id !== id));
+    setIsSyncing(true);
     try {
-      await fetch(`https://analytics-service-9yox.onrender.com/analytics/personnel/${id}`, {
+      const res = await fetch(`https://analytics-service-9yox.onrender.com/analytics/personnel/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${jwt}` }
       });
+      if (!res.ok) throw new Error('Deletion failed');
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error(err); 
+      setPersonnel(oldPersonnel);
+      alert('Failed to remove staff member. Reverting changes.');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleRegister = async (e) => {
