@@ -123,7 +123,13 @@ const App = ({ token }) => {
     for (const [key, url] of Object.entries(urls)) {
       try {
         const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
-        results[key] = r.ok ? 'ONLINE' : 'ERROR';
+        // If /health is 404, we try /analytics/health for the Analytics service as a safeguard
+        if (key === 'analytics' && r.status === 404) {
+          const r2 = await fetch('https://analytics-service-9yox.onrender.com/analytics/health', { signal: AbortSignal.timeout(3000) });
+          results[key] = r2.ok ? 'ONLINE' : 'ERROR';
+        } else {
+          results[key] = r.ok ? 'ONLINE' : 'ERROR';
+        }
       } catch { results[key] = 'OFFLINE'; }
     }
     setDiagnostics(results);
@@ -139,18 +145,18 @@ const App = ({ token }) => {
       const analyticsUrl = 'https://analytics-service-9yox.onrender.com/analytics';
       const sRes = await fetch(`${analyticsUrl}/stations`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       const sData = await sRes.json();
-      if (Array.isArray(sData)) {
-        setStations(sData);
-        if (managedStation) {
-          const myStation = sData.find(s => s.name === managedStation);
-          if (myStation) setStationStats({ beds: myStation.beds || 0, total_beds: myStation.total_beds || 0, ambulances: myStation.ambulances || 0, fire_trucks: myStation.fire_trucks || 0, readiness: myStation.readiness_level || 'High' });
-        }
-      }
+      if (Array.isArray(sData)) setStations(sData);
 
       const pQuery = isSystemAdmin ? '' : `?station_name=${encodeURIComponent(managedStation)}&service_type=${isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire'}`;
       const pRes = await fetch(`${analyticsUrl}/personnel${pQuery}`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       const pData = await pRes.json();
       if (Array.isArray(pData)) setPersonnel(pData);
+      
+      if (isSystemAdmin) {
+        const uRes = await fetch('https://auth-service-spk6.onrender.com/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } });
+        const uData = await uRes.json();
+        if (Array.isArray(uData)) setUsers(uData);
+      }
       
       runDiagnostics();
       setLoading(false);
