@@ -19,8 +19,11 @@ const initDB = async () => {
       email VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
       role VARCHAR(50) NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      managed_station VARCHAR(255)
     );
+    -- Ensure managed_station exists in case table was already created
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS managed_station VARCHAR(255);
   `;
   try {
     await pool.query(queryText);

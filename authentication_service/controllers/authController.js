@@ -7,7 +7,7 @@ let refreshTokens = [];
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, managed_station } = req.body;
     
     // Check if user exists
     const userExist = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -18,8 +18,8 @@ exports.register = async (req, res) => {
     const password_hash = await bcrypt.hash(password, salt);
 
     const newUser = await pool.query(
-      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id, name, email, role, created_at',
-      [name, email, password_hash, role || 'SYSTEM_ADMIN']
+      'INSERT INTO users (name, email, password_hash, role, managed_station) VALUES ($1, $2, $3, $4, $5) RETURNING user_id, name, email, role, managed_station, created_at',
+      [name, email, password_hash, role || 'SYSTEM_ADMIN', managed_station]
     );
 
     res.status(201).json(newUser.rows[0]);
@@ -65,7 +65,7 @@ exports.refreshToken = (req, res) => {
 
 exports.profile = async (req, res) => {
   try {
-    const userResult = await pool.query('SELECT user_id, name, email, role, created_at FROM users WHERE user_id = $1', [req.user.user_id]);
+    const userResult = await pool.query('SELECT user_id, name, email, role, managed_station, created_at FROM users WHERE user_id = $1', [req.user.user_id]);
     if (userResult.rows.length === 0) return res.status(404).json({ message: 'User not found' });
     res.json(userResult.rows[0]);
   } catch (err) {
@@ -78,7 +78,7 @@ exports.getUsers = async (req, res) => {
     if (req.user.role !== 'SYSTEM_ADMIN') {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    const usersResult = await pool.query('SELECT user_id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+    const usersResult = await pool.query('SELECT user_id, name, email, role, managed_station, created_at FROM users ORDER BY created_at DESC');
     res.json(usersResult.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
