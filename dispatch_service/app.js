@@ -17,7 +17,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/dispatch_db
 // Connect RabbitMQ - Backgrounded
 connectRabbitMQ();
 
-app.get('/', (req, res) => res.json({ status: 'OK', service: 'dispatch-service', version: '1.2.4' }));
+app.get('/', (req, res) => res.json({ status: 'OK', service: 'dispatch-service', version: '1.2.5' }));
 app.get('/health', (req, res) => res.json({ status: 'OK', service: 'dispatch-service' }));
 app.use('/vehicles', vehicleRoutes);
 
