@@ -27,7 +27,7 @@ const App = ({ token }) => {
   const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', role: 'SYSTEM_ADMIN', managed_station: '' });
   const [activeSubTab, setActiveSubTab] = useState('users'); // users | fleet
   const [vehicles, setVehicles] = useState([]);
-  const [vehicleForm, setVehicleForm] = useState({ vehicle_id: '', service_type: 'Medical', unit_name: '', current_lat: 5.6037, current_long: -0.1870 });
+  const [vehicleForm, setVehicleForm] = useState({ vehicle_id: '', service_type: 'Medical', unit_name: '', parking_station: '', current_lat: 5.6037, current_long: -0.1870 });
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const jwt = token || localStorage.getItem('jwt');
@@ -119,7 +119,7 @@ const App = ({ token }) => {
         body: JSON.stringify(vehicleForm)
       });
       if (res.ok) {
-        setVehicleForm({ vehicle_id: '', service_type: 'Medical', unit_name: '', current_lat: 5.6037, current_long: -0.1870 });
+        setVehicleForm({ vehicle_id: '', service_type: 'Medical', unit_name: '', parking_station: '', current_lat: 5.6037, current_long: -0.1870 });
         fetchVehicles();
       }
     } catch (err) { console.error(err); }
@@ -332,9 +332,10 @@ const App = ({ token }) => {
             <div>
               <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1.5rem', marginBottom: '1.5rem' }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '1rem' }}>Commission New Response Unit</div>
-                <form onSubmit={handleAddVehicle} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: '0.75rem', alignItems: 'end' }}>
-                   <div><label>Vehicle ID</label><input placeholder="e.g. AMB-01" value={vehicleForm.vehicle_id} onChange={e => setVehicleForm({ ...vehicleForm, vehicle_id: e.target.value })} required /></div>
-                   <div><label>Unit Name</label><input placeholder="e.g. Alpha One" value={vehicleForm.unit_name} onChange={e => setVehicleForm({ ...vehicleForm, unit_name: e.target.value })} required /></div>
+                <form onSubmit={handleAddVehicle} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr) auto', gap: '0.75rem', alignItems: 'end' }}>
+                   <div><label>Vehicle Number</label><input placeholder="e.g. GV-101" value={vehicleForm.vehicle_id} onChange={e => setVehicleForm({ ...vehicleForm, vehicle_id: e.target.value })} required /></div>
+                   <div><label>Vehicle Name</label><input placeholder="e.g. Rescue One" value={vehicleForm.unit_name} onChange={e => setVehicleForm({ ...vehicleForm, unit_name: e.target.value })} required /></div>
+                   <div><label>Parking Station</label><input placeholder="e.g. Accra Central" value={vehicleForm.parking_station} onChange={e => setVehicleForm({ ...vehicleForm, parking_station: e.target.value })} required /></div>
                    <div>
                      <label>Type</label>
                      <select value={vehicleForm.service_type} onChange={e => setVehicleForm({ ...vehicleForm, service_type: e.target.value })}>
@@ -351,12 +352,13 @@ const App = ({ token }) => {
               <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Active Fleet — {vehicles.length} Units</div>
               <div style={{ overflowX: 'auto' }}>
                 <table>
-                  <thead><tr><th>ID</th><th>Name</th><th>Service</th><th>Status</th><th>Actions</th></tr></thead>
+                  <thead><tr><th>No. Plate</th><th>Vehicle Name</th><th>Parking Station</th><th>Service</th><th>Status</th><th>Actions</th></tr></thead>
                   <tbody>
                     {vehicles.map(v => (
                       <tr key={v.vehicle_id}>
                         <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{v.vehicle_id}</td>
                         <td style={{ fontWeight: 500 }}>{v.unit_name}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{v.parking_station || '—'}</td>
                         <td>
                            <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: '10px', background: v.service_type === 'Fire' ? 'rgba(255,69,0,0.1)' : v.service_type === 'Police' ? 'rgba(26,111,255,0.1)' : 'rgba(0,212,170,0.1)', color: v.service_type === 'Fire' ? '#ff6a3d' : v.service_type === 'Police' ? '#5599ff' : '#00d4aa' }}>
                              {v.service_type === 'Hospital' ? 'Medical' : v.service_type}
