@@ -21,55 +21,61 @@ function deg2rad(deg) {
 
 exports.createIncident = async (req, res) => {
   try {
-    const { type, latitude, longitude } = req.body;
+    // 1. types is now an array (e.g. ['Fire', 'Medical'])
+    const { types, latitude, longitude } = req.body;
+    const typeLabel = Array.isArray(types) ? types.join(', ') : types;
     
-    // 1. Insert incident as OPEN
+    // 2. Insert incident
     const newIncident = await pool.query(
       'INSERT INTO incidents (type, latitude, longitude, status) VALUES ($1, $2, $3, $4) RETURNING *',
-      [type, latitude, longitude, 'OPEN']
+      [typeLabel, latitude, longitude, 'OPEN']
     );
     const incident = newIncident.rows[0];
 
-    // 2. Fetch available vehicles from Dispatch Service
-    let assigned_unit_id = null;
-    let closestDistance = Infinity;
-    let closestVehicle = null;
+    // 3. Fetch all available vehicles to find nearest for EACH nature
+    const dispatchUrl = process.env.DISPATCH_SERVICE_URL || 'http://localhost:4003';
+    const response = await axios.get(`${dispatchUrl}/vehicles/available`);
+    const availableVehicles = response.data;
 
-    try {
-      const dispatchUrl = process.env.DISPATCH_SERVICE_URL || 'http://localhost:4003';
-      const response = await axios.get(`${dispatchUrl}/vehicles/available`);
-      const availableVehicles = response.data;
+    const assignedUnits = [];
+    const typeMap = { 'Fire': 'Fire', 'Medical': 'Hospital', 'Crime': 'Police' };
+    const natures = Array.isArray(types) ? types : [types];
 
-      // Filter vehicles based on type matches
-      const typeMap = { 'Fire': 'Fire', 'Medical': 'Hospital', 'Crime': 'Police' };
-      const idealServiceType = typeMap[type];
+    for (const nature of natures) {
+      const targetService = typeMap[nature];
+      const candidates = availableVehicles.filter(v => v.service_type === targetService && !assignedUnits.includes(v.vehicle_id));
+      
+      let closest = null;
+      let minDist = Infinity;
 
-      const appropriateVehicles = availableVehicles.filter(v => 
-        !idealServiceType || v.service_type === idealServiceType
-      );
-
-      // Find nearest
-      appropriateVehicles.forEach(vehicle => {
-        const dist = getDistanceFromLatLonInKm(latitude, longitude, vehicle.current_lat, vehicle.current_long);
-        if (dist < closestDistance) {
-          closestDistance = dist;
-          closestVehicle = vehicle;
+      candidates.forEach(v => {
+        const d = getDistanceFromLatLonInKm(latitude, longitude, v.current_lat, v.current_long);
+        if (d < minDist) {
+          minDist = d;
+          closest = v;
         }
       });
 
-      if (closestVehicle) {
-        assigned_unit_id = closestVehicle.vehicle_id;
-        // Update incident to DISPATCHED
-        await pool.query('UPDATE incidents SET status = $1, assigned_unit_id = $2 WHERE incident_id = $3', ['DISPATCHED', assigned_unit_id, incident.incident_id]);
-        incident.status = 'DISPATCHED';
-        incident.assigned_unit_id = assigned_unit_id;
-        
-        // Notify dispatch service that the vehicle is no longer available if needed.
-        // Or wait for the event queue to handle it.
+      if (closest) {
+        assignedUnits.push(closest.vehicle_id);
+        // Trigger automated dispatch in the Dispatch Service
+        try {
+          await axios.post(`${dispatchUrl}/vehicles/${closest.vehicle_id}/dispatch`, {
+            target_lat: latitude,
+            target_long: longitude
+          });
+        } catch (err) {
+          console.error(`Failed to dispatch vehicle ${closest.vehicle_id}:`, err.message);
+        }
       }
-    } catch (err) {
-      console.error('Error fetching available vehicles or dispatching:', err.message);
-      // Incident remains OPEN, no unit assigned yet
+    }
+
+    // Update incident if units were assigned
+    if (assignedUnits.length > 0) {
+      const unitsLabel = assignedUnits.join(', ');
+      await pool.query('UPDATE incidents SET status = $1, assigned_unit_id = $2 WHERE incident_id = $3', ['DISPATCHED', unitsLabel, incident.incident_id]);
+      incident.status = 'DISPATCHED';
+      incident.assigned_unit_id = unitsLabel;
     }
 
     res.status(201).json(incident);

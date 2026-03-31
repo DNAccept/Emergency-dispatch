@@ -6,6 +6,8 @@ const vehicleSchema = new mongoose.Schema({
   unit_name: { type: String, required: true },
   current_lat: { type: Number, required: true },
   current_long: { type: Number, required: true },
+  target_lat: { type: Number, default: null },
+  target_long: { type: Number, default: null },
   is_available: { type: Boolean, default: true },
   status: { type: String, default: 'AVAILABLE' } 
 });

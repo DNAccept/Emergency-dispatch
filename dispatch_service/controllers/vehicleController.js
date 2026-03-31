@@ -68,3 +68,31 @@ exports.getVehicleStatus = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.dispatchVehicle = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { target_lat, target_long } = req.body;
+    const vehicle = await Vehicle.findOne({ vehicle_id: id });
+    if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+
+    vehicle.target_lat = target_lat;
+    vehicle.target_long = target_long;
+    vehicle.is_available = false;
+    vehicle.status = 'DISPATCHED';
+
+    await vehicle.save();
+    
+    publishEvent('dispatch.status.changed', {
+      event: 'dispatch.status.changed',
+      vehicle_id: id,
+      new_status: 'DISPATCHED',
+      target: { lat: target_lat, lng: target_long },
+      timestamp: new Date().toISOString()
+    });
+
+    res.json(vehicle);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
