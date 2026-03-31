@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -25,12 +25,40 @@ function RoleBadge({ role }) {
   );
 }
 
+const SearchBox = ({ setDraftLocation }) => {
+  const map = useMap();
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!query) return;
+    setSearching(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Ghana')}`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        const newLoc = { lat: parseFloat(lat), lng: parseFloat(lon) };
+        map.flyTo([newLoc.lat, newLoc.lng], 16, { duration: 1.5 });
+        if (setDraftLocation) setDraftLocation([newLoc.lat, newLoc.lng]);
+      }
+    } catch (err) { console.error('Search failed:', err); }
+    finally { setSearching(false); }
+  };
+
+  return (
+    <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000, width: '200px' }}>
+      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.3rem', background: 'rgba(0,0,0,0.8)', padding: '0.3rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <input placeholder="Locate Station..." value={query} onChange={e => setQuery(e.target.value)} style={{ flex: 1, fontSize: '0.65rem', padding: '0.2rem', background: 'transparent', border: 'none', color: 'white' }} />
+        <button type="submit" disabled={searching} style={{ background: '#ff4500', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '2px', cursor: 'pointer', fontSize: '0.6rem' }}>{searching ? '...' : '🔍'}</button>
+      </form>
+    </div>
+  );
+};
+
 function LocationPicker({ position, setPosition }) {
-  useMapEvents({
-    click(e) {
-      setPosition([e.latlng.lat, e.latlng.lng]);
-    },
-  });
+  useMapEvents({ click(e) { setPosition([e.latlng.lat, e.latlng.lng]); } });
   return position ? <Marker position={position} /> : null;
 }
 
@@ -47,7 +75,7 @@ const App = ({ token }) => {
   // Persistent Resources
   const [stations, setStations] = useState([]);
   const [personnel, setPersonnel] = useState([]);
-  const [stationStats, setStationStats] = useState({ beds: 0, ambulances: 0, fire_trucks: 0, readiness: 'High' });
+  const [stationStats, setStationStats] = useState({ beds: 0, total_beds: 0, ambulances: 0, fire_trucks: 0, readiness: 'High' });
   const [newStaff, setNewStaff] = useState({ name: '', role: '', status: 'Available' });
 
   useEffect(() => {
@@ -78,7 +106,7 @@ const App = ({ token }) => {
         setStations(sData);
         if (managedStation) {
           const myStation = sData.find(s => s.name === managedStation);
-          if (myStation) setStationStats({ beds: myStation.beds, ambulances: myStation.ambulances, fire_trucks: myStation.fire_trucks, readiness: myStation.readiness_level });
+          if (myStation) setStationStats({ beds: myStation.beds || 0, total_beds: myStation.total_beds || 0, ambulances: myStation.ambulances || 0, fire_trucks: myStation.fire_trucks || 0, readiness: myStation.readiness_level || 'High' });
         }
       }
 
@@ -165,12 +193,15 @@ const App = ({ token }) => {
 
   const handleAddVehicle = async (e) => {
     e.preventDefault();
-    // Default values if in station admin context
     const finalVehicle = {
       ...vehicleForm,
       parking_station: managedStation || vehicleForm.parking_station,
       service_type: isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : isFireAdmin ? 'Fire' : vehicleForm.service_type
     };
+
+    if (!finalVehicle.vehicle_id || !finalVehicle.unit_name) {
+      alert('Please fill in all fields.'); return;
+    }
 
     try {
       const res = await fetch('https://dispatch-service-v690.onrender.com/vehicles/register', {
@@ -179,10 +210,14 @@ const App = ({ token }) => {
         body: JSON.stringify(finalVehicle)
       });
       if (res.ok) {
+        alert('Response Unit commissioned successfully!');
         setVehicleForm({ vehicle_id: '', service_type: 'Hospital', unit_name: '', parking_station: '', current_lat: 5.6037, current_long: -0.1870, status: 'READY' });
         fetchData();
+      } else {
+        const d = await res.json();
+        alert(`Commissioning failed: ${d.message || d.error || 'Server error'}`);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { alert('Network error connecting to dispatch service.'); }
   };
 
   const handleUpdateVehicleStatus = async (id, status) => {
@@ -238,6 +273,14 @@ const App = ({ token }) => {
               {isHospitalAdmin && (
                  <>
                   <div className="stat-card">
+                    <div className="stat-card-label">Total Beds</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                      <button onClick={() => handleUpdateStation({ total_beds: Math.max(0, stationStats.total_beds - 1) })} className="btn btn-ghost">-</button>
+                      <span className="stat-card-value" style={{ fontSize: '1.8rem', color: 'var(--primary)' }}>{stationStats.total_beds}</span>
+                      <button onClick={() => handleUpdateStation({ total_beds: stationStats.total_beds + 1 })} className="btn btn-ghost">+</button>
+                    </div>
+                  </div>
+                  <div className="stat-card" style={{ borderLeft: '2px solid var(--secondary)' }}>
                     <div className="stat-card-label">Available Beds</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
                       <button onClick={() => handleUpdateStation({ beds: Math.max(0, stationStats.beds - 1) })} className="btn btn-ghost">-</button>
@@ -280,7 +323,7 @@ const App = ({ token }) => {
               </form>
             </div>
 
-            {/* Vehicle Management (The ambulance/unit registration request) */}
+            {/* Vehicle Management */}
             <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', padding: '1.25rem' }}>
               <div className="section-sub-label">Register Response Unit</div>
               <form onSubmit={handleAddVehicle} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -290,9 +333,9 @@ const App = ({ token }) => {
                 </div>
                 
                 {/* Map picker for coordinates */}
-                <div style={{ height: 140, borderRadius: '2px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', position: 'relative' }}>
-                  <div style={{ position: 'absolute', top: 5, left: 5, zIndex: 1000, background: 'rgba(0,0,0,0.7)', padding: '0.2rem 0.4rem', fontSize: '0.55rem', color: 'var(--secondary)', textTransform: 'uppercase' }}>Set Location</div>
+                <div style={{ height: 180, borderRadius: '2px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', position: 'relative' }}>
                   <MapContainer center={[5.6037, -0.1870]} zoom={11} style={{ height: '100%', width: '100%' }}>
+                    <SearchBox setDraftLocation={(p) => setVehicleForm({...vehicleForm, current_lat: p[0], current_long: p[1]})} />
                     <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
                     <LocationPicker position={[vehicleForm.current_lat, vehicleForm.current_long]} setPosition={(p) => setVehicleForm({...vehicleForm, current_lat: p[0], current_long: p[1]})} />
                   </MapContainer>
@@ -301,12 +344,12 @@ const App = ({ token }) => {
                   <span>Lat: {vehicleForm.current_lat.toFixed(6)}</span>
                   <span>Long: {vehicleForm.current_long.toFixed(6)}</span>
                 </div>
-                <button type="submit" className="btn btn-secondary" style={{ padding: '0.4rem' }}>+ Commission Unit</button>
+                <button type="submit" className="btn btn-secondary" style={{ padding: '0.5rem' }}>+ Commission Unit</button>
               </form>
             </div>
           </div>
 
-          {/* Unit List for specific admin */}
+          {/* Unit List */}
           <div style={{ marginTop: '1rem' }}>
              <div className="section-sub-label">Station Units</div>
              <table style={{ fontSize: '0.8rem' }}>
@@ -342,8 +385,8 @@ const App = ({ token }) => {
           {activeSubTab === 'resources' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
               <div className="stat-card">
-                 <div className="stat-card-label">Total Beds</div>
-                 <div className="stat-card-value" style={{ color: 'var(--secondary)' }}>{stations.reduce((acc, s) => acc + (s.beds || 0), 0)}</div>
+                 <div className="stat-card-label">Total Beds (Global)</div>
+                 <div className="stat-card-value" style={{ color: 'var(--secondary)' }}>{stations.reduce((acc, s) => acc + (s.total_beds || 0), 0)}</div>
               </div>
               <div className="stat-card">
                  <div className="stat-card-label">Active Staff</div>
@@ -357,14 +400,14 @@ const App = ({ token }) => {
               <div style={{ gridColumn: 'span 3', marginTop: '1rem' }}>
                 <div className="section-sub-label">National Registry</div>
                 <table>
-                  <thead><tr><th>Station</th><th>Service</th><th>Staff</th><th>Readiness</th></tr></thead>
+                  <thead><tr><th>Station</th><th>Service</th><th>Staff</th><th>Beds (Avail/Total)</th></tr></thead>
                   <tbody>
                     {stations.map(s => (
                       <tr key={s._id}>
                         <td>{s.name}</td>
                         <td style={{ fontSize: '0.7rem' }}>{s.service_type}</td>
                         <td style={{ fontFamily: 'var(--font-mono)' }}>{personnel.filter(p => p.station_name === s.name).length}</td>
-                        <td>{s.readiness_level}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)' }}>{s.beds || 0} / {s.total_beds || 0}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -404,21 +447,17 @@ const App = ({ token }) => {
           )}
 
           {activeSubTab === 'fleet' && (
-            <div>
-               <table>
-                 <thead><tr><th>Plate</th><th>Name</th><th>Station</th><th>Status</th></tr></thead>
-                 <tbody>
-                   {vehicles.map(v => (
-                     <tr key={v.vehicle_id}>
-                       <td style={{ fontFamily: 'var(--font-mono)' }}>{v.vehicle_id}</td>
-                       <td>{v.unit_name}</td>
-                       <td>{v.parking_station}</td>
-                       <td style={{ color: v.status === 'READY' ? 'var(--secondary)' : 'var(--danger)' }}>{v.status}</td>
-                     </tr>
-                   ))}
-                 </tbody>
-               </table>
-            </div>
+             <div style={{ height: 400, borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', marginBottom: '1.5rem' }}>
+                <MapContainer center={[5.6037, -0.1870]} zoom={11} style={{ height: '100%', width: '100%' }}>
+                  <SearchBox />
+                  <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                  {vehicles.map(v => (
+                    <Marker key={v.vehicle_id} position={[v.current_lat, v.current_long]}>
+                      <Popup>Unit: {v.unit_name} ({v.status})</Popup>
+                    </Marker>
+                  ))}
+                </MapContainer>
+             </div>
           )}
         </div>
       )}

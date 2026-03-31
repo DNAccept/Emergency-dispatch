@@ -110,17 +110,22 @@ function createVehicleIcon(v, isSelected) {
   });
 }
 
-function createColoredIcon(color, type) {
+function createColoredIcon(types) {
+  const tArray = Array.isArray(types) ? types : (typeof types === 'string' ? types.split(', ') : ['Medical']);
   const icons = { Medical: HEALTH_SVG, Fire: FIRE_SVG, Crime: POLICE_SVG, Traffic: POLICE_SVG };
-  const icon = icons[type] || HEALTH_SVG;
+  
+  const iconHtml = tArray.map(t => {
+    const icon = icons[t] || HEALTH_SVG;
+    const color = INCIDENT_CONFIG[t]?.color || '#fff';
+    return `<div style="width:24px;height:24px;background:#1a1d21;border:2px solid ${color};border-radius:50%;box-shadow:0 0 8px ${color};display:flex;align-items:center;justify-content:center;margin: 0 -4px; z-index: ${tArray.indexOf(t)}">
+              <img src="${icon}" style="width:14px;height:14px" />
+            </div>`;
+  }).join('');
+
   return L.divIcon({
     className: '',
-    html: `
-      <div style="width:28px;height:28px;background:#1a1d21;border:2px solid ${color};border-radius:50%;box-shadow:0 0 10px ${color};display:flex;align-items:center;justify-content:center">
-        <img src="${icon}" style="width:16px;height:16px" />
-      </div>
-    `,
-    iconSize: [28, 28], iconAnchor: [14, 14]
+    html: `<div style="display:flex;align-items:center;justify-content:center;min-width:30px">${iconHtml}</div>`,
+    iconSize: [30, 30], iconAnchor: [15, 15]
   });
 }
 
@@ -316,7 +321,7 @@ const App = ({ token, role: roleProp }) => {
               const primary = types[0] || 'Medical';
               const c = INCIDENT_CONFIG[primary] || INCIDENT_CONFIG.Medical;
               return (
-                <Marker key={inc.incident_id || inc.id || Math.random()} position={[inc.latitude, inc.longitude]} icon={createColoredIcon(c.color, primary)} eventHandlers={{ click: () => setSelectedIncident(inc) }}>
+                <Marker key={inc.incident_id || inc.id || Math.random()} position={[inc.latitude, inc.longitude]} icon={createColoredIcon(inc.type)} eventHandlers={{ click: () => setSelectedIncident(inc) }}>
                   <Popup>
                     <div style={{ fontFamily: 'sans-serif', minWidth: 160 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: c.color, fontWeight: 700 }}>
@@ -331,7 +336,7 @@ const App = ({ token, role: roleProp }) => {
               );
             })}
             {draftLocation && showForm && (
-              <Marker position={[draftLocation.lat, draftLocation.lng]} icon={createColoredIcon(cfg.color, primaryType)}>
+              <Marker position={[draftLocation.lat, draftLocation.lng]} icon={createColoredIcon(draftTypes)}>
                 <Popup>📍 New Incident Location</Popup>
               </Marker>
             )}

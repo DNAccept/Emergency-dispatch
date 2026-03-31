@@ -11,13 +11,14 @@ exports.getStations = async (req, res) => {
 
 exports.updateStation = async (req, res) => {
   try {
-    const { name, service_type, beds, ambulances, fire_trucks, readiness_level } = req.body;
+    const { name, service_type, beds, total_beds, ambulances, fire_trucks, readiness_level } = req.body;
     let station = await Station.findOne({ name });
     
     if (!station) {
-      station = new Station({ name, service_type, beds, ambulances, fire_trucks, readiness_level });
+      station = new Station({ name, service_type, beds, total_beds, ambulances, fire_trucks, readiness_level });
     } else {
       if (beds !== undefined) station.beds = beds;
+      if (total_beds !== undefined) station.total_beds = total_beds;
       if (ambulances !== undefined) station.ambulances = ambulances;
       if (fire_trucks !== undefined) station.fire_trucks = fire_trucks;
       if (readiness_level !== undefined) station.readiness_level = readiness_level;
