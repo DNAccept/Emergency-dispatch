@@ -1,13 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
+const MapResizer = () => {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 400);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+};
+
 const HEALTH_SVG = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUiIGhlaWdodD0iMTUiIHZpZXdCb3g9IjAgMCAxNSAxNSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNNywxQzYuNCwxLDYsMS40LDYsMlY0SDJDMS40LDYsMSw2LjQsMSw3VjhjMCwwLjYsMC40LDEsMSwxaDR2NGMwLDAuNiwwLjQsMSwxLDFoMWMwLjYsMCwxLTAuNCwxLTFWOWg0YzAuNiwwLDEtMC40LDEtMVY3YzAtMC42LTAuNC0xLTEtMUg5VjJjMC0wLjYsMC40LTEsMS0xSDd6Ii8+PC9zdmc+';
-const POLICE_SVG = 'data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjZmZmZmZmIiB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjguNTgxIDIwLjU0NGMwIDMuMzY5LTIuNzg5IDMuMzY5LTQuMjkyIDMuMzY5aC0xLjg3NHYtNi4zNjloMi4zNTVjMS4zMTcgMCAzLjgxMSAwIDMuODExIDN6bTE0LjM5Ni0zLjM2M2MuMjc4LTMuNDI4IDEuMjcxLTYuNTc0IDMuMDIzLTkuNDU4bC02LjcxOS02LjcyM2MtMi4xMjMgMS44MjgtNC41MzkgMi44NC03LjI3OSAzLjAxOS0yLjUwOS4yMjctNC44OTEtLjI1LTcuMTI3LTEuNDM0LTIuMzAxIDEuMTQ2LTQuNjcxIDEuNjI1LTcuMTQyIDEuNDM0LTIuNTU2LS4yMjktNC44NjItMS4xMzUtNi45MjgtMi43NDFsLTYuNzM4IDYuNzJjMS42NTcgMi45MjUgMi41OCA1Ljk4NyAyLjc2MiA5LjE4My4wODYgMS40NzItLjMzNCAzLjQ5OC0xLjI3NiA2LjExNy0uNDkzIDEuNDUyLS44NjYgMi43MTItMS4xMiAzLjc2NC0uMjM1IDEuMDQ1LS4zODIgMS44OTUtLjQzMSAyLjUzMS0uMDM1IDIuNzkxLjc0OCA1LjMxMSAyLjM1MyA3LjU1IDEuMjU0IDEuNjM1IDMuMzIyIDMuNDQwIDYuMTk0IDUuNDE1IDMuMTQyIDEuNiA1LjU3NCAyLjYzOSA3LjI3NyAzLjA4MWwxLjQxMi42NTZjLjQ0NC4yMTQuOTIwLjQyMSAxLjQxNy42NDcgMS4wNzEuNjQyIDEuODI0IDEuMzM5IDIuMjIgMi4wNTcuNDg2LS43NzcgMS4yNTUtMS40NTYgMi4yNzctMi4wNTcuNzIyLS4zMTQgMS4zMzMtLjU4OCAxLjgyMy0uODI4LjQ5LS4yMTUuODU1LS4zNzcgMS4wNjctLjQ3Ni4zNjMtLjE4MS44NC0uMzg3IDEuNDE3LS42MTUuNTgzLS4yMjkgMS4zMDItLjUxIDIuMTYxLS44MiAxLjY2LS41ODkgMi44NjgtMS4xNDQgMy42MzYtMS42NDYgMi43ODUtMS45NzUgNC44MjEtMy43NTAgNi4xMTctNS4zMzkgMS42NjItMi4yNDkgMi40NjktNC43ODAgMi40MzItNy42MjYtLjA5OC0xLjI3NC0uNjM3LTMuMzEzLTEuNjE2LTYuMDkxLS45MzQtMi43MDQtMS4zNDgtNC44MDQtMS4yMTItNi4zMnptLTEyLjM1IDkuMjFjLTEuNTk1IDEuMDQ0LTMuNzg4IDEuMDQ0LTQuOTMzIDEuMDQ0aC0zLjE0NXY4LjYwNmgtNC43Mjl2LTIyLjA3Nmg2LjcxM2MzLjEyIDAgNS43MjkuMjAxIDcuNTQxIDIuNDEwIDEuMTMxIDEuNDA2IDEuMzIyIDMuMDAzIDEuMzIyIDQuMTM4LS4wMDIgMi41NzEtMS4wNjEgNC43NDEtMi43NjkgNS44Nzh6Ii8+PC9zdmc+';
+const POLICE_SVG = 'data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjZmZmZmZmIiB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjguNTgxIDIwLjU0NGMwIDMuMzY5LTIuNzg5IDMuMzY5LTQuMjkyIDMuMzY5aC0xLjg3NHYtNi4zNjloMi4zNTVjMS4zMTcgMCAzLjgxMSAwIDMuODExIDN6bTE0LjM5Ni0zLjM2M2MuMjc4LTMuNDI4IDEuMjcxLTYuNTc0IDMuMDIzLTkuNDU4bC02LjcxOS02LjcyM2MtMi4xMjMgMS44MjgtNC41MzkgMi44NC03LjI3OSAzLjAxOS0yLjUwOS4yMjctNC44OTEtLjI1LTcuMTI3LTEuNDM0LTIuMzAxIDEuMTQ2LTQuNjcxIDEuNjI1LTcuMTQyIDEuNDM0LTIuNTU2LS4yMjktNC44NjItMS4xMzUtNi45MjgtMi43NDFsLTYuNzM4IDYuNzJjMS42NTcgMi45MjUgMi41OCA1Ljk4NyAyLjc2MiA5LjE4My4wODYgMS40NzItLjMzNCAzLjQ5OC0xLjI3NiA2LjExNy0uNDkzIDEuNDUyLS44NjYgMi43MTUtMS40MzQgMy43NjQtLjIzNSAxLjA0NS0uMzgyIDEuODk1LS40MzEgMi41MzEtLjAzNSAyLjc5MS43NDggNS4zMTEgMi4zNTMgNy41NSAxLjI1NCAxLjYzNSAzLjMyMiAzLjQ0MCA2LjE5NCA1LjQxNSAzLjE0MiAxLjYgNS41NzQgMi42MzkgNy4yNzcgMy4wODFsMS40MTIuNjU2Yy40NDQuMjE0LjkyMC40MjEgMS40MTcuNjQ3IDEuMDcxLjY0MiAxLjgyNCAxLjMzOSAyLjIyIDIuMDU3LjQ4Ni0uNzc3IDEuMjU1LTEuNDU2IDIuMjc3LTIuMDU3LjcyMi0uMzE0IDEuMzMzLS41ODggMS44MjMtLjgyOC40OS0uMjE1Ljg1NS0uMzc3IDEuMDY3LS40NzYuMzYzLS4xODEuODQtLjM4NyAxLjQxNy0uNjE1LjU4My0uMjI5IDEuMzAyLS41MSAyLjE2MS0uODIgMS42Ni0uNTg5IDIuODY4LTEuMTQ0IDMuNjM2LTEuNjQ2IDIuNzg1LTEuOTc1IDQuODIxLTMuNzUwIDYuMTE3LTUuMzM5IDEuNjYyLTIuMjQ5IDIuNDY5LTQuNzgwIDIuNDMyLTcuNjI2LS4wOTgtMS4yNzQtLjYzNy0zLjMxMy0xLjYxNi02LjA5MS0uOTM0LTIuNzA0LTEuMzQ4LTQuODA0LTEuMjEyLTYuMzJ6bS0xMi4zNSA5LjIxYy0xLjU5NSAxLjA0NC0zLjc4OCAxLjA0NC00LjkzMyAxLjA0NGgtMy4xNDV2OC42MDZoLTQuNzI5di0yMi4wNzZoNi43MTNjMy4xMiAwIDUuNzI5LjIwMSA3LjU0MSAyLjQxMCAxLjEzIDEuNDA2IDEuMzIyIDMuMDAzIDEuMzIyIDQuMTM4LS4wMDIgMi41NzEtMS4wNjEgNC43NDEtMi43NjkgNS44Nzh6Ii8+PC9zdmc+';
 const FIRE_SVG   = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTciIGhlaWdodD0iMTciIHZpZXdCb3g9IjAgLTAuNSAxNyAxNyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSIjZmZmZmZmIj48cGF0aCBkPSJNMywxNC4wNDcgTDIuNjc0LDE0LjA0NyBDMi4zMDMsMTQuMDQ3IDIsMTQuNTA0IDIsMTUuMDY2IEwyLDE1Ljk1OSBMOS45ODYsMTUuOTU5IEw5Ljk4NywxNS45NTkgTDkuOTg3LDE1LjA2NiBDOS45ODcsMTQuNTAzIDkuNjg0LDE0LjA0NyA5LjMxMywxNC4wNDcgTDguOTU2LDE0LjA0NyBMOC45NTYsNiBMMyw2IEwzLDE0LjA0NyBaIiAvPjxwYXRoIGQ9Ik0yLDQgTDIsNC45NDIgTDEwLDUgTDEwLDQgTDIsNCBaIiAvPjxwYXRoIGQ9Ik01LDEuMTQxNzI0NjggQzMuODUyMTM0NjIsMS40MTIxOTY2NyAzLjAzMSwyLjEzNTA3NjcxIDMuMDMxLDIuOTg0IEw4Ljk2OSwyLjk4NCBDOC45NjksMi4xMzA0OTY2NyA4LjEzODM1NjcsMS40MDQ0MDAyOSA2Ljk4MSwxLjEzNzM4NjU1IEw2Ljk4MSwwIEw1LDAgTDUsMS4xNDE3MjQ2OCBaIiAvPjxwYXRoIGQ9Ik0xLDggTDEsNyBMMS45NDcsNyBMMS45NDcsOCBMMS45NzQsOCBMMS45NzQsOC45NyBMMS45NDcsOC45NyBMMS45NDcsOS45MDggTDEsOS45MDggTDEsOC45NyBMMCw4Ljk3IEwwLDggTDEsOCBaIiAvPjxwYXRoIGQ9Ik0xMC45NTMsOC45MzggTDEwLjk1Myw5LjkwNiBMMTAsOS45MDYgTDEwLDcgTDEwLjk1Myw3IEwxMC45NTMsOCBMMTEuOTQyLDggTDExLjk0Miw4LjkzOCBMMTAuOTUzLDguOTM4IFoiIC8+PC9nPjwvc3ZnPg==';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -57,9 +66,7 @@ const App = ({ token, role: roleProp }) => {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const jwt = token || localStorage.getItem('jwt');
 
-  // Only SYSTEM_ADMIN can file new incident reports
   const canReport = roleProp === 'SYSTEM_ADMIN';
-
 
   const fetchIncidents = () => {
     fetch('https://incident-service-9yox.onrender.com/incidents/open', { headers: { 'Authorization': `Bearer ${jwt}` } })
@@ -101,7 +108,6 @@ const App = ({ token, role: roleProp }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1.25rem', color: 'white' }}>
-      {/* Header */}
       <div className="section-header">
         <div className="section-title">Incident <span>Dashboard</span></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -129,7 +135,6 @@ const App = ({ token, role: roleProp }) => {
         </div>
       </div>
 
-      {/* Report Form — only for SYSTEM_ADMIN */}
       {canReport && showForm && (
         <div style={{ background: 'rgba(0,0,0,0.35)', border: `1px solid ${cfg.border}`, borderLeft: `3px solid ${cfg.color}`, borderRadius: '3px', padding: '1.25rem', animation: 'fadeIn 0.2s ease-out' }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: cfg.color, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -165,12 +170,11 @@ const App = ({ token, role: roleProp }) => {
         </div>
       )}
 
-      {/* Map + Sidebar layout */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 280px', gap: '1rem', minHeight: 500 }}>
-        {/* Map */}
-        <div style={{ borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', zIndex: 0 }}>
+        <div style={{ height: '550px', background: '#0a0c10', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', boxShadow: 'inset 0 0 40px rgba(0,0,0,0.5)', position: 'relative' }}>
           <MapContainer center={defaultCenter} zoom={12} style={{ height: '100%', width: '100%' }}>
-            <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <MapResizer />
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
             {showForm && <MapClickHandler setDraftLocation={setDraftLocation} />}
             {incidents.map(inc => {
               const c = INCIDENT_CONFIG[inc.type] || INCIDENT_CONFIG.Medical;
