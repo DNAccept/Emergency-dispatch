@@ -34,43 +34,50 @@ exports.createIncident = async (req, res) => {
 
     // 3. Fetch all available vehicles to find nearest for EACH nature
     const dispatchUrl = process.env.DISPATCH_SERVICE_URL || 'https://dispatch-service-v690.onrender.com';
-    const response = await axios.get(`${dispatchUrl}/vehicles/available`);
-    const availableVehicles = response.data;
-
     const assignedUnits = [];
-    const typeMap = { 'Fire': 'Fire', 'Medical': 'Hospital', 'Crime': 'Police' };
-    const natures = Array.isArray(types) ? types : [types];
+    
+    try {
+      const response = await axios.get(`${dispatchUrl}/vehicles/available`, { timeout: 5000 });
+      const availableVehicles = response.data;
 
-    for (const nature of natures) {
-      const targetService = typeMap[nature];
-      const candidates = availableVehicles.filter(v => v.service_type === targetService && !assignedUnits.includes(v.vehicle_id));
-      
-      let closest = null;
-      let minDist = Infinity;
+      if (Array.isArray(availableVehicles)) {
+        const typeMap = { 'Fire': 'Fire', 'Medical': 'Hospital', 'Crime': 'Police' };
+        const natures = Array.isArray(types) ? types : [types];
 
-      candidates.forEach(v => {
-        const d = getDistanceFromLatLonInKm(latitude, longitude, v.current_lat, v.current_long);
-        if (d < minDist) {
-          minDist = d;
-          closest = v;
-        }
-      });
+        for (const nature of natures) {
+          const targetService = typeMap[nature];
+          const candidates = availableVehicles.filter(v => v.service_type === targetService && !assignedUnits.includes(v.vehicle_id));
+          
+          let closest = null;
+          let minDist = Infinity;
 
-      if (closest) {
-        assignedUnits.push(closest.vehicle_id);
-        // Trigger automated dispatch in the Dispatch Service
-        try {
-          await axios.post(`${dispatchUrl}/vehicles/${closest.vehicle_id}/dispatch`, {
-            target_lat: latitude,
-            target_long: longitude
+          candidates.forEach(v => {
+            const d = getDistanceFromLatLonInKm(latitude, longitude, v.current_lat, v.current_long);
+            if (d < minDist) {
+              minDist = d;
+              closest = v;
+            }
           });
-        } catch (err) {
-          console.error(`Failed to dispatch vehicle ${closest.vehicle_id}:`, err.message);
+
+          if (closest) {
+            assignedUnits.push(closest.vehicle_id);
+            // Trigger automated dispatch
+            try {
+              await axios.post(`${dispatchUrl}/vehicles/${closest.vehicle_id}/dispatch`, {
+                target_lat: latitude,
+                target_long: longitude
+              }, { timeout: 5000 });
+            } catch (dispatchErr) {
+              console.error(`Failed to dispatch unit ${closest.vehicle_id}:`, dispatchErr.message);
+            }
+          }
         }
       }
+    } catch (fetchErr) {
+      console.error('Failed to fetch available vehicles for auto-dispatch:', fetchErr.message);
     }
 
-    // Update incident if units were assigned
+    // 4. Update incident if units were assigned
     if (assignedUnits.length > 0) {
       const unitsLabel = assignedUnits.join(', ');
       await pool.query('UPDATE incidents SET status = $1, assigned_unit_id = $2 WHERE incident_id = $3', ['DISPATCHED', unitsLabel, incident.incident_id]);
@@ -80,6 +87,7 @@ exports.createIncident = async (req, res) => {
 
     res.status(201).json(incident);
   } catch (err) {
+    console.error('Create Incident Error:', err);
     res.status(500).json({ error: err.message });
   }
 };
