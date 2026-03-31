@@ -1,3 +1,9 @@
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 const HEALTH_SVG = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUiIGhlaWdodD0iMTUiIHZpZXdCb3g9IjAgMCAxNSAxNSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNNywxQzYuNCwxLDYsMS40LDYsMlY0SDJDMS40LDYsMSw2LjQsMSw3VjhjMCwwLjYsMC40LDEsMSwxaDR2NGMwLDAuNiwwLjQsMSwxLDFoMWMwLjYsMCwxLTAuNCwxLTFWOWg0YzAuNiwwLDEtMC40LDEtMVY3YzAtMC42LTAuNC0xLTEtMUg5VjJjMC0wLjYsMC40LTEsMS0xSDd6Ii8+PC9zdmc+';
