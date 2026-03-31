@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
@@ -96,6 +96,7 @@ function createColoredIcon(color, type) {
 
 const App = ({ token, role: roleProp }) => {
   const [incidents, setIncidents] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [draftLocation, setDraftLocation] = useState(null);
@@ -115,13 +116,26 @@ const App = ({ token, role: roleProp }) => {
       .catch(() => setLoading(false));
   };
 
+  const fetchVehicles = () => {
+    fetch('https://dispatch-service-v690.onrender.com/vehicles/available', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setVehicles(d.filter(v => v.status === 'DISPATCHED' || v.status === 'ON_SCENE')); })
+      .catch(console.error);
+  };
+
   useEffect(() => {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
     document.head.appendChild(link);
-    if (jwt) fetchIncidents();
-    const interval = setInterval(fetchIncidents, 5000);
+    if (jwt) {
+      fetchIncidents();
+      fetchVehicles();
+    }
+    const interval = setInterval(() => {
+      fetchIncidents();
+      fetchVehicles();
+    }, 4000);
     return () => clearInterval(interval);
   }, [jwt]);
 
@@ -251,6 +265,28 @@ const App = ({ token, role: roleProp }) => {
             <SearchBox setDraftLocation={setDraftLocation} />
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
             {showForm && <MapClickHandler setDraftLocation={setDraftLocation} />}
+            
+            {/* Trail Lines & Responders */}
+            {vehicles.map(v => (
+              <React.Fragment key={v.vehicle_id}>
+                {v.target_route && v.target_route.length > 0 && (
+                  <Polyline 
+                    positions={[ [v.current_lat, v.current_long], ...v.target_route ]}
+                    pathOptions={{ color: v.service_type === 'Fire' ? '#ff4500' : v.service_type === 'Police' ? '#1a6fff' : '#00d4aa', weight: 3, dashArray: '8, 8', opacity: 0.6 }}
+                  />
+                )}
+                <Marker position={[v.current_lat, v.current_long]} icon={L.divIcon({
+                  className: '',
+                  html: `<div style="width:24px;height:24px;background:#1a1d21;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(255,255,255,0.5)">
+                          <span style="font-size:14px">${v.service_type === 'Fire' ? '🚒' : v.service_type === 'Police' ? '🚓' : '🚑'}</span>
+                         </div>`,
+                  iconSize: [24, 24], iconAnchor: [12, 12]
+                })}>
+                  <Popup>Unit: {v.unit_name} ({v.status})</Popup>
+                </Marker>
+              </React.Fragment>
+            ))}
+
             {incidents.map(inc => {
               const types = String(inc.type || 'Medical').split(', ');
               const primary = types[0] || 'Medical';

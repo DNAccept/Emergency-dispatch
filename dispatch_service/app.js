@@ -23,32 +23,31 @@ app.use('/vehicles', vehicleRoutes);
 const Vehicle = require('./models/Vehicle');
 setInterval(async () => {
   try {
-    const activeVehicles = await Vehicle.find({ target_lat: { $ne: null }, target_long: { $ne: null } });
+    const activeVehicles = await Vehicle.find({ target_route: { $exists: true, $not: { $size: 0 } } });
     for (const v of activeVehicles) {
-      const dLat = v.target_lat - v.current_lat;
-      const dLong = v.target_long - v.current_long;
-      
-      // Move 10% closer each tick
-      const stepLat = dLat * 0.1;
-      const stepLong = dLong * 0.1;
+      if (v.target_route && v.target_route.length > 0) {
+        // Pop current position from route (we move along waypoints)
+        // Skip ahead to the next waypoint
+        const nextPoint = v.target_route.shift();
+        v.current_lat = nextPoint[0];
+        v.current_long = nextPoint[1];
 
-      v.current_lat += stepLat;
-      v.current_long += stepLong;
-
-      // If very close, snap to target and clear
-      if (Math.abs(dLat) < 0.0001 && Math.abs(dLong) < 0.0001) {
-        v.current_lat = v.target_lat;
-        v.current_long = v.target_long;
-        v.target_lat = null;
-        v.target_long = null;
-        v.status = 'ON_SCENE';
+        // If route is now empty, we have arrived
+        if (v.target_route.length === 0) {
+          v.target_lat = null;
+          v.target_long = null;
+          v.status = 'ON_SCENE';
+        }
+        
+        // Mark the field as modified so Mongoose saves the array shift
+        v.markModified('target_route');
+        await v.save();
       }
-      await v.save();
     }
   } catch (err) {
     console.error('Simulation loop error:', err.message);
   }
-}, 4000);
+}, 3000); // Faster updates for smoother road travel
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'dispatch_service' });

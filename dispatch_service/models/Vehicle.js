@@ -8,6 +8,7 @@ const vehicleSchema = new mongoose.Schema({
   current_long: { type: Number, required: true },
   target_lat: { type: Number, default: null },
   target_long: { type: Number, default: null },
+  target_route: { type: Array, default: [] },
   is_available: { type: Boolean, default: true },
   status: { type: String, default: 'AVAILABLE' } 
 });

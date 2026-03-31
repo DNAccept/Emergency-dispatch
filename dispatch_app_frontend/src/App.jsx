@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
@@ -173,17 +173,25 @@ const App = ({ token }) => {
                 const isSelected = selectedVehicleId === vid;
                 const cfg = SERVICE_CONFIG[v.service_type] || SERVICE_CONFIG.Hospital;
                 return (
-                  <Marker key={vid || Math.random()} position={[lat, lng]} icon={createVehicleIcon(v.service_type, v.is_available, isSelected)} eventHandlers={{ click: () => setSelectedVehicleId(vid) }}>
-                    <Popup>
-                      <div style={{ fontFamily: 'sans-serif', minWidth: 150 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: cfg.color, fontWeight: 700 }}>
-                          <img src={cfg.icon} style={{ width: 16, height: 16 }} /> {v.unit_name || v.type || 'Unit'}
+                  <React.Fragment key={vid || Math.random()}>
+                    {v.target_route && v.target_route.length > 0 && (
+                      <Polyline 
+                        positions={[ [lat, lng], ...v.target_route ]}
+                        pathOptions={{ color: cfg.color, weight: 3, dashArray: '8, 8', opacity: 0.6 }}
+                      />
+                    )}
+                    <Marker position={[lat, lng]} icon={createVehicleIcon(v.service_type, v.is_available, isSelected)} eventHandlers={{ click: () => setSelectedVehicleId(vid) }}>
+                      <Popup>
+                        <div style={{ fontFamily: 'sans-serif', minWidth: 150 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: cfg.color, fontWeight: 700 }}>
+                            <img src={cfg.icon} style={{ width: 16, height: 16 }} /> {v.unit_name || v.type || 'Unit'}
+                          </div>
+                          <span style={{ color: '#666', fontSize: '0.8rem' }}>Service: {v.service_type}</span><br />
+                          <span style={{ color: v.is_available ? '#00d4aa' : '#ff4500', fontSize: '0.8rem' }}>{v.is_available ? '● Available' : '● Deployed'}</span>
                         </div>
-                        <span style={{ color: '#666', fontSize: '0.8rem' }}>Service: {v.service_type}</span><br />
-                        <span style={{ color: v.is_available ? '#00d4aa' : '#ff4500', fontSize: '0.8rem' }}>{v.is_available ? '● Available' : '● Deployed'}</span>
-                      </div>
-                    </Popup>
-                  </Marker>
+                      </Popup>
+                    </Marker>
+                  </React.Fragment>
                 );
               })}
             </MapContainer>
