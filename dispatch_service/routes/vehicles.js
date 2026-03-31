@@ -4,6 +4,7 @@ const { registerVehicle, updateLocationAndStatus, getAvailableVehicles, getVehic
 
 router.post('/register', registerVehicle);
 router.post('/:id/location', updateLocationAndStatus);
+router.patch('/:id/status', updateLocationAndStatus);
 router.post('/:id/dispatch', dispatchVehicle);
 router.get('/available', getAvailableVehicles);
 router.get('/:id', getVehicleStatus);
