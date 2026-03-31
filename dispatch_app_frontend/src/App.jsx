@@ -35,12 +35,32 @@ const SearchBox = () => {
     finally { setSearching(false); }
   };
 
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearch(e);
+    }
+  };
+
   return (
     <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000, width: '220px' }}>
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.3rem', background: 'rgba(0,0,0,0.8)', padding: '0.4rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
-        <input placeholder="Search Area..." value={query} onChange={e => setQuery(e.target.value)} style={{ flex: 1, fontSize: '0.7rem', padding: '0.2rem', background: 'transparent', border: 'none', color: 'white' }} />
-        <button type="submit" disabled={searching} style={{ background: '#1a6fff', color: 'white', border: 'none', padding: '0.2rem 0.6rem', borderRadius: '2px', cursor: 'pointer', fontSize: '0.65rem' }}>{searching ? '...' : '🔍'}</button>
-      </form>
+      <div style={{ display: 'flex', gap: '0.3rem', background: 'rgba(0,0,0,0.8)', padding: '0.4rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <input 
+          placeholder="Search Area..." 
+          value={query} 
+          onChange={e => setQuery(e.target.value)} 
+          onKeyDown={onKeyDown}
+          style={{ flex: 1, fontSize: '0.7rem', padding: '0.2rem', background: 'transparent', border: 'none', color: 'white' }} 
+        />
+        <button 
+          type="button" 
+          onClick={handleSearch} 
+          disabled={searching} 
+          style={{ background: '#1a6fff', color: 'white', border: 'none', padding: '0.2rem 0.6rem', borderRadius: '2px', cursor: 'pointer', fontSize: '0.65rem' }}
+        >
+          {searching ? '...' : '🔍'}
+        </button>
+      </div>
     </div>
   );
 };

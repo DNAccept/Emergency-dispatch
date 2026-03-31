@@ -47,12 +47,32 @@ const SearchBox = ({ setDraftLocation }) => {
     finally { setSearching(false); }
   };
 
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearch(e);
+    }
+  };
+
   return (
     <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000, width: '200px' }}>
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.3rem', background: 'rgba(0,0,0,0.8)', padding: '0.3rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
-        <input placeholder="Locate Station..." value={query} onChange={e => setQuery(e.target.value)} style={{ flex: 1, fontSize: '0.65rem', padding: '0.2rem', background: 'transparent', border: 'none', color: 'white' }} />
-        <button type="submit" disabled={searching} style={{ background: '#ff4500', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '2px', cursor: 'pointer', fontSize: '0.6rem' }}>{searching ? '...' : '🔍'}</button>
-      </form>
+      <div style={{ display: 'flex', gap: '0.3rem', background: 'rgba(0,0,0,0.8)', padding: '0.3rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <input 
+          placeholder="Locate Station..." 
+          value={query} 
+          onChange={e => setQuery(e.target.value)} 
+          onKeyDown={onKeyDown}
+          style={{ flex: 1, fontSize: '0.65rem', padding: '0.2rem', background: 'transparent', border: 'none', color: 'white' }} 
+        />
+        <button 
+          type="button" 
+          onClick={handleSearch} 
+          disabled={searching} 
+          style={{ background: '#ff4500', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '2px', cursor: 'pointer', fontSize: '0.6rem' }}
+        >
+          {searching ? '...' : '🔍'}
+        </button>
+      </div>
     </div>
   );
 };
@@ -275,17 +295,17 @@ const App = ({ token }) => {
                   <div className="stat-card">
                     <div className="stat-card-label">Total Beds</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                      <button onClick={() => handleUpdateStation({ total_beds: Math.max(0, stationStats.total_beds - 1) })} className="btn btn-ghost">-</button>
+                      <button type="button" onClick={() => handleUpdateStation({ total_beds: Math.max(0, stationStats.total_beds - 1) })} className="btn btn-ghost">-</button>
                       <span className="stat-card-value" style={{ fontSize: '1.8rem', color: 'var(--primary)' }}>{stationStats.total_beds}</span>
-                      <button onClick={() => handleUpdateStation({ total_beds: stationStats.total_beds + 1 })} className="btn btn-ghost">+</button>
+                      <button type="button" onClick={() => handleUpdateStation({ total_beds: stationStats.total_beds + 1 })} className="btn btn-ghost">+</button>
                     </div>
                   </div>
                   <div className="stat-card" style={{ borderLeft: '2px solid var(--secondary)' }}>
                     <div className="stat-card-label">Available Beds</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                      <button onClick={() => handleUpdateStation({ beds: Math.max(0, stationStats.beds - 1) })} className="btn btn-ghost">-</button>
+                      <button type="button" onClick={() => handleUpdateStation({ beds: Math.max(0, stationStats.beds - 1) })} className="btn btn-ghost">-</button>
                       <span className="stat-card-value" style={{ fontSize: '1.8rem', color: 'var(--secondary)' }}>{stationStats.beds}</span>
-                      <button onClick={() => handleUpdateStation({ beds: stationStats.beds + 1 })} className="btn btn-ghost">+</button>
+                      <button type="button" onClick={() => handleUpdateStation({ beds: stationStats.beds + 1 })} className="btn btn-ghost">+</button>
                     </div>
                   </div>
                  </>

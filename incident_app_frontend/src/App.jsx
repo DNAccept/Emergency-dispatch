@@ -37,19 +37,32 @@ const SearchBox = ({ setDraftLocation }) => {
     finally { setSearching(false); }
   };
 
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearch(e);
+    }
+  };
+
   return (
     <div style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 1000, width: '280px' }}>
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', background: 'rgba(6,10,15,0.9)', padding: '0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(6,10,15,0.9)', padding: '0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
         <input 
           placeholder="Search Area (e.g. Airport Hills)" 
           value={query} 
           onChange={e => setQuery(e.target.value)}
+          onKeyDown={onKeyDown}
           style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
         />
-        <button type="submit" disabled={searching} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '2px', cursor: 'pointer', fontSize: '0.7rem' }}>
+        <button 
+          type="button" 
+          onClick={handleSearch} 
+          disabled={searching} 
+          style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '2px', cursor: 'pointer', fontSize: '0.7rem' }}
+        >
           {searching ? '...' : '🔍'}
         </button>
-      </form>
+      </div>
     </div>
   );
 };
