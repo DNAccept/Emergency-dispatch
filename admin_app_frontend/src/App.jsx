@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import eyeOpen from './assets/icons/open.svg';
 import eyeClosed from './assets/icons/closed.svg';
+
+// Fix Leaflet icon issue
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+let DefaultIcon = L.icon({ iconUrl: markerIcon, shadowUrl: markerShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const ROLE_COLORS = {
   SYSTEM_ADMIN: { bg: 'rgba(255,69,0,0.1)', color: '#ff8c5a', border: 'rgba(255,69,0,0.3)' },
@@ -20,29 +29,33 @@ function RoleBadge({ role }) {
   );
 }
 
+function LocationPicker({ position, setPosition }) {
+  useMapEvents({
+    click(e) {
+      setPosition([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+  return position ? <Marker position={position} /> : null;
+}
+
 const App = ({ token }) => {
   const [profile, setProfile] = useState(null);
   const [showRegister, setShowRegister] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', role: 'SYSTEM_ADMIN', managed_station: '' });
-  const [activeSubTab, setActiveSubTab] = useState('users'); // users | fleet
+  const [activeSubTab, setActiveSubTab] = useState('users'); // users | fleet | staff
   const [vehicles, setVehicles] = useState([]);
-  const [vehicleForm, setVehicleForm] = useState({ vehicle_id: '', service_type: 'Medical', unit_name: '', parking_station: '', current_lat: 5.6037, current_long: -0.1870 });
+  const [vehicleForm, setVehicleForm] = useState({ vehicle_id: '', service_type: 'Hospital', unit_name: '', parking_station: '', current_lat: 5.6037, current_long: -0.1870, status: 'READY' });
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
   const jwt = token || localStorage.getItem('jwt');
   const [registerSuccess, setRegisterSuccess] = useState('');
   const [registerError, setRegisterError] = useState('');
 
-  const [beds, setBeds] = useState(45);
-  const [ambulances, setAmbulances] = useState(12);
-  const [personnel, setPersonnel] = useState([{ id: 1, name: 'Dr. Sarah Smith', role: 'Trauma Surgeon', status: 'On Call' }]);
+  // Persistent Resources
+  const [stations, setStations] = useState([]);
+  const [personnel, setPersonnel] = useState([]);
+  const [stationStats, setStationStats] = useState({ beds: 0, ambulances: 0, fire_trucks: 0, readiness: 'High' });
   const [newStaff, setNewStaff] = useState({ name: '', role: '', status: 'Available' });
-
-  const [officers, setOfficers] = useState([{ id: 1, name: 'Officer Jenkins', rank: 'Patrol', status: 'On Duty' }]);
-  const [newOfficer, setNewOfficer] = useState({ name: '', rank: '', status: 'On Duty' });
-
-  const [fireStats, setFireStats] = useState({ trucks: 4, activeFires: 1, readiness: 'High' });
 
   useEffect(() => {
     if (jwt) {
@@ -52,42 +65,96 @@ const App = ({ token }) => {
   }, [jwt]);
 
   const role = profile?.role || profile?.user?.role;
+  const managedStation = profile?.managed_station || profile?.user?.managed_station;
   const isHospitalAdmin = role === 'HOSPITAL_ADMIN';
   const isPoliceAdmin = role === 'POLICE_ADMIN';
   const isFireAdmin = role === 'FIRE_ADMIN';
   const isSystemAdmin = role === 'SYSTEM_ADMIN';
 
-  const fetchUsers = () => {
-    if (jwt && isSystemAdmin) {
-      fetch('https://auth-service-spk6.onrender.com/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } })
-        .then(r => r.json()).then(d => { if (Array.isArray(d)) setUsers(d); }).catch(console.error);
-    }
-  };
+  const fetchData = async () => {
+    if (!jwt) return;
+    try {
+      // Vehicles
+      const vRes = await fetch('https://dispatch-service-v690.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const vData = await vRes.json();
+      if (Array.isArray(vData)) setVehicles(vData);
 
-  const fetchVehicles = () => {
-    if (jwt) {
-      fetch('https://dispatch-service-v690.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } })
-        .then(r => r.json()).then(d => { if (Array.isArray(d)) setVehicles(d); }).catch(console.error);
-    }
+      // Stations & Personnel (Analytics Service)
+      const analyticsUrl = 'https://analytics-service-9yox.onrender.com/analytics';
+      
+      const sRes = await fetch(`${analyticsUrl}/stations`, { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const sData = await sRes.json();
+      if (Array.isArray(sData)) {
+        setStations(sData);
+        if (managedStation) {
+          const myStation = sData.find(s => s.name === managedStation);
+          if (myStation) setStationStats({ beds: myStation.beds, ambulances: myStation.ambulances, fire_trucks: myStation.fire_trucks, readiness: myStation.readiness_level });
+        }
+      }
+
+      const pQuery = managedStation ? `?station_name=${encodeURIComponent(managedStation)}` : '';
+      const pRes = await fetch(`${analyticsUrl}/personnel${pQuery}`, { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const pData = await pRes.json();
+      if (Array.isArray(pData)) setPersonnel(pData);
+
+      if (isSystemAdmin) {
+        const uRes = await fetch('https://auth-service-spk6.onrender.com/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } });
+        const uData = await uRes.json();
+        if (Array.isArray(uData)) setUsers(uData);
+      }
+    } catch (err) { console.error('Data fetch error:', err); }
   };
 
   useEffect(() => {
-    if (jwt) {
-       fetchUsers();
-       fetchVehicles();
-       const i = setInterval(() => { fetchUsers(); fetchVehicles(); }, 4000);
-       return () => clearInterval(i);
-    }
-  }, [jwt, isSystemAdmin]);
+    fetchData();
+    const i = setInterval(fetchData, 5000);
+    return () => clearInterval(i);
+  }, [jwt, managedStation]);
 
-  const handleAddStaff = (e) => {
-    e.preventDefault();
-    if (newStaff.name) { setPersonnel([...personnel, { ...newStaff, id: Date.now() }]); setNewStaff({ name: '', role: '', status: 'Available' }); }
+  const handleUpdateStation = async (updates) => {
+    if (!managedStation) return;
+    const newStats = { ...stationStats, ...updates };
+    setStationStats(newStats);
+    try {
+      await fetch('https://analytics-service-9yox.onrender.com/analytics/stations/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+        body: JSON.stringify({
+          name: managedStation,
+          service_type: isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire',
+          ...newStats,
+          readiness_level: newStats.readiness
+        })
+      });
+    } catch (err) { console.error(err); }
   };
 
-  const handleAddOfficer = (e) => {
+  const handleAddStaff = async (e) => {
     e.preventDefault();
-    if (newOfficer.name) { setOfficers([...officers, { ...newOfficer, id: Date.now() }]); setNewOfficer({ name: '', rank: '', status: 'On Duty' }); }
+    if (!newStaff.name || !managedStation) return;
+    try {
+      await fetch('https://analytics-service-9yox.onrender.com/analytics/personnel/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+        body: JSON.stringify({
+          ...newStaff,
+          station_name: managedStation,
+          service_type: isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire'
+        })
+      });
+      setNewStaff({ name: '', role: '', status: 'Available' });
+      fetchData();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRemoveStaff = async (id) => {
+    try {
+      await fetch(`https://analytics-service-9yox.onrender.com/analytics/personnel/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${jwt}` }
+      });
+      fetchData();
+    } catch (err) { console.error(err); }
   };
 
   const handleRegister = async (e) => {
@@ -102,7 +169,7 @@ const App = ({ token }) => {
       if (res.ok) {
         setRegisterSuccess(`User "${registerForm.name}" registered successfully.`);
         setRegisterForm({ name: '', email: '', password: '', role: 'SYSTEM_ADMIN', managed_station: '' });
-        fetchUsers();
+        fetchData();
       } else {
         const d = await res.json();
         setRegisterError(d.message || d.error || 'Registration failed');
@@ -119,9 +186,20 @@ const App = ({ token }) => {
         body: JSON.stringify(vehicleForm)
       });
       if (res.ok) {
-        setVehicleForm({ vehicle_id: '', service_type: 'Medical', unit_name: '', parking_station: '', current_lat: 5.6037, current_long: -0.1870 });
-        fetchVehicles();
+        setVehicleForm({ vehicle_id: '', service_type: 'Hospital', unit_name: '', parking_station: '', current_lat: 5.6037, current_long: -0.1870, status: 'READY' });
+        fetchData();
       }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleUpdateVehicleStatus = async (id, status) => {
+    try {
+      await fetch(`https://dispatch-service-v690.onrender.com/vehicles/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+        body: JSON.stringify({ status })
+      });
+      fetchData();
     } catch (err) { console.error(err); }
   };
 
@@ -132,7 +210,7 @@ const App = ({ token }) => {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${jwt}` }
       });
-      if (res.ok) fetchVehicles();
+      if (res.ok) fetchData();
     } catch (err) { console.error(err); }
   };
 
@@ -143,7 +221,10 @@ const App = ({ token }) => {
       <div className="section-header">
         <div>
           <div className="section-title"><span>Manage</span> Operations</div>
-          {role && <div style={{ marginTop: 4 }}><RoleBadge role={role} /></div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: 4 }}>
+            {role && <RoleBadge role={role} />}
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{managedStation || 'Global Command'}</span>
+          </div>
         </div>
         {profile && !profile.error && (
           <div style={{ textAlign: 'right' }}>
@@ -153,98 +234,76 @@ const App = ({ token }) => {
         )}
       </div>
 
-      {/* Hospital Admin Panel */}
-      {isHospitalAdmin && (
+      {/* Hospital/Police/Fire Admin Panels */}
+      {(isHospitalAdmin || isPoliceAdmin || isFireAdmin) && (
         <div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ width: 8, height: 8, background: 'var(--secondary)', borderRadius: '50%', display: 'inline-block' }} />
-            Hospital Capacity Control
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-            {[['Available Beds', beds, setBeds, 'var(--secondary)'], ['Ambulances Ready', ambulances, setAmbulances, 'var(--warning)']].map(([lbl, val, setter, color]) => (
-              <div key={lbl} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1rem' }}>
-                <div className="stat-card-label">{lbl}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                  <button onClick={() => setter(Math.max(0, val - 1))} className="btn btn-ghost" style={{ padding: '0.3rem 0.7rem', fontSize: '1.1rem' }}>−</button>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '2rem', color, fontWeight: 700, minWidth: 40, textAlign: 'center' }}>{val}</span>
-                  <button onClick={() => setter(val + 1)} className="btn btn-ghost" style={{ padding: '0.3rem 0.7rem', fontSize: '1.1rem' }}>+</button>
-                </div>
-              </div>
-            ))}
+            {managedStation} Resources
           </div>
 
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Medical Personnel</div>
-          <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '1rem' }}>
-            {personnel.map((p, i) => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 1rem', borderBottom: i < personnel.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                <div>
-                  <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{p.name}</span>
-                  <span style={{ marginLeft: '0.5rem', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{p.role}</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            {isHospitalAdmin && (
+               <>
+                <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1rem' }}>
+                  <div className="stat-card-label">Available Beds</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                    <button onClick={() => handleUpdateStation({ beds: Math.max(0, stationStats.beds - 1) })} className="btn btn-ghost" style={{ padding: '0.3rem 0.7rem' }}>−</button>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '2rem', color: 'var(--secondary)', fontWeight: 700 }}>{stationStats.beds}</span>
+                    <button onClick={() => handleUpdateStation({ beds: stationStats.beds + 1 })} className="btn btn-ghost" style={{ padding: '0.3rem 0.7rem' }}>+</button>
+                  </div>
                 </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: p.status === 'Available' ? 'var(--secondary)' : 'var(--warning)' }}>{p.status}</span>
+                <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1rem' }}>
+                  <div className="stat-card-label">Ambulances Ready</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                    <button onClick={() => handleUpdateStation({ ambulances: Math.max(0, stationStats.ambulances - 1) })} className="btn btn-ghost" style={{ padding: '0.3rem 0.7rem' }}>−</button>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '2rem', color: 'var(--warning)', fontWeight: 700 }}>{stationStats.ambulances}</span>
+                    <button onClick={() => handleUpdateStation({ ambulances: stationStats.ambulances + 1 })} className="btn btn-ghost" style={{ padding: '0.3rem 0.7rem' }}>+</button>
+                  </div>
+                </div>
+               </>
+            )}
+            {isFireAdmin && (
+               <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1rem' }}>
+                 <div className="stat-card-label">Available Trucks</div>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                   <button onClick={() => handleUpdateStation({ fire_trucks: Math.max(0, stationStats.fire_trucks - 1) })} className="btn btn-ghost" style={{ padding: '0.3rem 0.7rem' }}>−</button>
+                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '2rem', color: 'var(--fire-red)', fontWeight: 700 }}>{stationStats.fire_trucks}</span>
+                   <button onClick={() => handleUpdateStation({ fire_trucks: stationStats.fire_trucks + 1 })} className="btn btn-ghost" style={{ padding: '0.3rem 0.7rem' }}>+</button>
+                 </div>
+               </div>
+            )}
+            <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1rem' }}>
+               <div className="stat-card-label">Readiness Level</div>
+               <select value={stationStats.readiness} onChange={e => handleUpdateStation({ readiness: e.target.value })} style={{ marginTop: '0.75rem', width: '100%', background: 'rgba(0,0,0,0.4)', color: stationStats.readiness === 'High' ? 'var(--secondary)' : 'var(--warning)' }}>
+                 <option value="High" style={{ color: 'black' }}>High</option>
+                 <option value="Moderate" style={{ color: 'black' }}>Moderate</option>
+                 <option value="Low" style={{ color: 'black' }}>Low</option>
+               </select>
+            </div>
+          </div>
+
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Staff Directory</div>
+          <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '1.5rem' }}>
+            {personnel.length === 0 && <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.82rem' }}>No staff registered.</div>}
+            {personnel.map((p, i) => (
+              <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1rem', borderBottom: i < personnel.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: p.status === 'Available' ? 'var(--secondary)' : 'var(--warning)' }} />
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-bright)' }}>{p.name}</span>
+                    <span style={{ marginLeft: '0.5rem', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{p.role}</span>
+                  </div>
+                </div>
+                <button onClick={() => handleRemoveStaff(p._id)} className="btn btn-ghost" style={{ fontSize: '0.65rem', color: 'var(--danger)', padding: '0.15rem 0.4rem' }}>REMOVE</button>
               </div>
             ))}
           </div>
           <form onSubmit={handleAddStaff} style={{ display: 'flex', gap: '0.75rem' }}>
-            <div style={{ flex: 1 }}><input placeholder="Staff Name" value={newStaff.name} onChange={e => setNewStaff({ ...newStaff, name: e.target.value })} required /></div>
-            <div style={{ flex: 1 }}><input placeholder="Role (e.g. Nurse)" value={newStaff.role} onChange={e => setNewStaff({ ...newStaff, role: e.target.value })} required /></div>
-            <button type="submit" className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>+ Add</button>
+            <div style={{ flex: 2 }}><input placeholder="Staff Full Name" value={newStaff.name} onChange={e => setNewStaff({ ...newStaff, name: e.target.value })} required /></div>
+            <div style={{ flex: 1 }}><input placeholder="Role" value={newStaff.role} onChange={e => setNewStaff({ ...newStaff, role: e.target.value })} required /></div>
+            <button type="submit" className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>+ Register Staff</button>
           </form>
-        </div>
-      )}
-
-      {/* Police Admin Panel */}
-      {isPoliceAdmin && (
-        <div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--police-blue)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: 8, height: 8, background: 'var(--police-blue)', borderRadius: '50%', display: 'inline-block' }} />
-            Officers Roll Call
-          </div>
-          <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '1rem' }}>
-            {officers.map((o, i) => (
-              <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 1rem', borderBottom: i < officers.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                <div>
-                  <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{o.name}</span>
-                  <span style={{ marginLeft: '0.5rem', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{o.rank}</span>
-                </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: o.status === 'On Duty' ? 'var(--secondary)' : 'var(--text-muted)' }}>{o.status}</span>
-              </div>
-            ))}
-          </div>
-          <form onSubmit={handleAddOfficer} style={{ display: 'flex', gap: '0.75rem' }}>
-            <div style={{ flex: 1 }}><input placeholder="Officer Name" value={newOfficer.name} onChange={e => setNewOfficer({ ...newOfficer, name: e.target.value })} required /></div>
-            <div style={{ flex: 1 }}><input placeholder="Rank / Title" value={newOfficer.rank} onChange={e => setNewOfficer({ ...newOfficer, rank: e.target.value })} required /></div>
-            <button type="submit" className="btn" style={{ background: 'rgba(26,111,255,0.15)', color: '#5599ff', border: '1px solid rgba(26,111,255,0.3)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.5rem 1rem', borderRadius: '2px', cursor: 'pointer' }}>+ Add</button>
-          </form>
-        </div>
-      )}
-
-      {/* Fire Admin Panel */}
-      {isFireAdmin && (
-        <div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fire-red)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: 8, height: 8, background: 'var(--fire-red)', borderRadius: '50%', display: 'inline-block' }} />
-            Fire Station Readiness
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem', background: 'rgba(255,69,0,0.06)', border: '1px solid rgba(255,69,0,0.2)', borderRadius: '3px' }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Available Fire Trucks</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <button onClick={() => setFireStats({ ...fireStats, trucks: Math.max(0, fireStats.trucks - 1) })} className="btn btn-ghost" style={{ padding: '0.25rem 0.65rem' }}>−</button>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.5rem', color: '#ff8c5a', fontWeight: 700, minWidth: 32, textAlign: 'center' }}>{fireStats.trucks}</span>
-                <button onClick={() => setFireStats({ ...fireStats, trucks: fireStats.trucks + 1 })} className="btn btn-ghost" style={{ padding: '0.25rem 0.65rem' }}>+</button>
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem', background: 'rgba(255,69,0,0.06)', border: '1px solid rgba(255,69,0,0.2)', borderRadius: '3px' }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Station Readiness Level</span>
-              <select value={fireStats.readiness} onChange={e => setFireStats({ ...fireStats, readiness: e.target.value })} style={{ width: 'auto', background: 'rgba(0,0,0,0.4)', color: fireStats.readiness === 'High' ? 'var(--secondary)' : fireStats.readiness === 'Low' ? 'var(--danger)' : 'var(--warning)' }}>
-                <option value="High" style={{ color: 'black' }}>High</option>
-                <option value="Moderate" style={{ color: 'black' }}>Moderate</option>
-                <option value="Low" style={{ color: 'black' }}>Low</option>
-              </select>
-            </div>
-          </div>
-          <button className="btn btn-primary" style={{ marginTop: '1.25rem', width: '100%', background: 'var(--fire-red)', borderColor: 'rgba(255,69,0,0.4)' }}>📢 Broadcast Status Update</button>
         </div>
       )}
 
@@ -252,21 +311,59 @@ const App = ({ token }) => {
       {isSystemAdmin && (
         <div>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-            <button onClick={() => setActiveSubTab('users')} className="btn" style={{ flex: 1, background: activeSubTab === 'users' ? 'rgba(255,69,0,0.15)' : 'rgba(255,255,255,0.04)', color: activeSubTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', border: `1px solid ${activeSubTab === 'users' ? 'rgba(255,69,0,0.35)' : 'rgba(255,255,255,0.08)'}`, fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.6rem', borderRadius: '2px', cursor: 'pointer' }}>
-               Manage Users
-            </button>
-            <button onClick={() => setActiveSubTab('fleet')} className="btn" style={{ flex: 1, background: activeSubTab === 'fleet' ? 'rgba(255,69,0,0.15)' : 'rgba(255,255,255,0.04)', color: activeSubTab === 'fleet' ? 'var(--primary)' : 'var(--text-muted)', border: `1px solid ${activeSubTab === 'fleet' ? 'rgba(255,69,0,0.35)' : 'rgba(255,255,255,0.08)'}`, fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.6rem', borderRadius: '2px', cursor: 'pointer' }}>
-               Manage Fleet
-            </button>
+            {['users', 'fleet', 'resources'].map(tab => (
+              <button key={tab} onClick={() => setActiveSubTab(tab)} className="btn" style={{ flex: 1, background: activeSubTab === tab ? 'rgba(255,69,0,0.15)' : 'rgba(255,255,255,0.04)', color: activeSubTab === tab ? 'var(--primary)' : 'var(--text-muted)', border: `1px solid ${activeSubTab === tab ? 'rgba(255,69,0,0.35)' : 'rgba(255,255,255,0.08)'}`, fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.7rem', borderRadius: '2px' }}>
+                {tab}
+              </button>
+            ))}
           </div>
+
+          {activeSubTab === 'resources' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+              <div className="stat-card">
+                 <div className="stat-card-label">Total Beds (National)</div>
+                 <div className="stat-card-value" style={{ color: 'var(--secondary)' }}>{stations.reduce((acc, s) => acc + (s.beds || 0), 0)}</div>
+              </div>
+              <div className="stat-card">
+                 <div className="stat-card-label">Active Personnel</div>
+                 <div className="stat-card-value" style={{ color: 'var(--primary)' }}>{personnel.length}</div>
+              </div>
+              <div className="stat-card">
+                 <div className="stat-card-label">Fleet Readiness</div>
+                 <div className="stat-card-value" style={{ color: 'var(--warning)' }}>{Math.round((vehicles.filter(v => v.status === 'READY').length / (vehicles.length || 1)) * 100)}%</div>
+              </div>
+
+              <div style={{ gridColumn: 'span 3', marginTop: '1rem' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>National Facilities Registry</div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table>
+                    <thead><tr><th>Station Name</th><th>Service</th><th>Staff</th><th>Capacity</th><th>Status</th></tr></thead>
+                    <tbody>
+                      {stations.map(s => {
+                        const staffCount = personnel.filter(p => p.station_name === s.name).length;
+                        return (
+                          <tr key={s._id}>
+                            <td style={{ fontWeight: 600 }}>{s.name}</td>
+                            <td><span style={{ fontSize: '0.65rem', padding: '0.15rem 0.4rem', borderRadius: '2px', background: 'rgba(255,255,255,0.05)' }}>{s.service_type}</span></td>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{staffCount} Personnel</td>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+                              {s.beds ? `${s.beds} Beds` : s.fire_trucks ? `${s.fire_trucks} Trucks` : s.ambulances ? `${s.ambulances} Ambulances` : '—'}
+                            </td>
+                            <td><span style={{ color: s.readiness_level === 'High' ? 'var(--secondary)' : 'var(--warning)', fontWeight: 600 }}>{s.readiness_level}</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
 
           {activeSubTab === 'users' && !showRegister && (
             <div>
                <button onClick={() => setShowRegister(true)} className="btn btn-secondary" style={{ marginBottom: '1.25rem' }}>+ Register New Administrator</button>
-               <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                System Directory — {users.length} Active Accounts
-              </div>
-              <div style={{ overflowX: 'auto' }}>
+               <div style={{ overflowX: 'auto' }}>
                 <table>
                   <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Station</th><th>Joined</th></tr></thead>
                   <tbody>
@@ -276,7 +373,7 @@ const App = ({ token }) => {
                         <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>{u.email}</td>
                         <td><RoleBadge role={u.role} /></td>
                         <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{u.managed_station || '—'}</td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-dim)' }}>{new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-dim)' }}>{new Date(u.created_at).toLocaleDateString('en-GB').toUpperCase()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -287,9 +384,6 @@ const App = ({ token }) => {
 
           {activeSubTab === 'users' && showRegister && (
             <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1.5rem' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>New User Registration</div>
-              {registerSuccess && <div style={{ background: 'rgba(0,212,170,0.08)', border: '1px solid rgba(0,212,170,0.25)', borderLeft: '3px solid var(--secondary)', padding: '0.7rem 1rem', marginBottom: '1rem', borderRadius: '2px', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--secondary)' }}>✓ {registerSuccess}</div>}
-              {registerError && <div style={{ background: 'rgba(255,51,51,0.08)', border: '1px solid rgba(255,51,51,0.25)', borderLeft: '3px solid var(--danger)', padding: '0.7rem 1rem', marginBottom: '1rem', borderRadius: '2px', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: '#ff8080' }}>⚠ {registerError}</div>}
               <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div><label>Full Name</label><input placeholder="e.g. Kofi Mensah" value={registerForm.name} onChange={e => setRegisterForm({ ...registerForm, name: e.target.value })} required /></div>
@@ -298,12 +392,7 @@ const App = ({ token }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div>
                     <label>Password</label>
-                    <div style={{ position: 'relative' }}>
-                      <input type={showPassword ? 'text' : 'password'} placeholder="••••••••••" value={registerForm.password} onChange={e => setRegisterForm({ ...registerForm, password: e.target.value })} required style={{ paddingRight: '2.8rem' }} />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                        <img src={showPassword ? eyeClosed : eyeOpen} alt="toggle" style={{ width: 17, height: 17, filter: 'invert(0.5)' }} />
-                      </button>
-                    </div>
+                    <input type={showPassword ? 'text' : 'password'} value={registerForm.password} onChange={e => setRegisterForm({ ...registerForm, password: e.target.value })} required />
                   </div>
                   <div>
                     <label>Role</label>
@@ -330,26 +419,46 @@ const App = ({ token }) => {
 
           {activeSubTab === 'fleet' && (
             <div>
-              <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '1rem' }}>Commission New Response Unit</div>
-                <form onSubmit={handleAddVehicle} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr) auto', gap: '0.75rem', alignItems: 'end' }}>
-                   <div><label>Vehicle Number</label><input placeholder="e.g. GV-101" value={vehicleForm.vehicle_id} onChange={e => setVehicleForm({ ...vehicleForm, vehicle_id: e.target.value })} required /></div>
-                   <div><label>Vehicle Name</label><input placeholder="e.g. Rescue One" value={vehicleForm.unit_name} onChange={e => setVehicleForm({ ...vehicleForm, unit_name: e.target.value })} required /></div>
-                   <div><label>Parking Station</label><input placeholder="e.g. Accra Central" value={vehicleForm.parking_station} onChange={e => setVehicleForm({ ...vehicleForm, parking_station: e.target.value })} required /></div>
-                   <div>
-                     <label>Type</label>
-                     <select value={vehicleForm.service_type} onChange={e => setVehicleForm({ ...vehicleForm, service_type: e.target.value })}>
-                        <option value="Medical" style={{ color: 'black' }}>Medical (Ambulance)</option>
-                        <option value="Police" style={{ color: 'black' }}>Police (Patrol)</option>
-                        <option value="Fire" style={{ color: 'black' }}>Fire (Truck)</option>
-                     </select>
-                   </div>
-                   <div><label>Base Latitude</label><input type="number" step="0.0001" value={vehicleForm.current_lat} onChange={e => setVehicleForm({ ...vehicleForm, current_lat: parseFloat(e.target.value) })} /></div>
-                   <button type="submit" className="btn btn-secondary">＋ Commission</button>
-                </form>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                {/* Commissioning Form */}
+                <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '3px', padding: '1.5rem' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '1rem' }}>Commission New Response Unit</div>
+                  <form onSubmit={handleAddVehicle} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                       <div><label>Vehicle Number</label><input placeholder="e.g. GV-101" value={vehicleForm.vehicle_id} onChange={e => setVehicleForm({ ...vehicleForm, vehicle_id: e.target.value })} required /></div>
+                       <div><label>Vehicle Name</label><input placeholder="e.g. Rescue One" value={vehicleForm.unit_name} onChange={e => setVehicleForm({ ...vehicleForm, unit_name: e.target.value })} required /></div>
+                     </div>
+                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                       <div><label>Parking Station</label><input placeholder="e.g. Accra Central" value={vehicleForm.parking_station} onChange={e => setVehicleForm({ ...vehicleForm, parking_station: e.target.value })} required /></div>
+                       <div>
+                         <label>Service Type</label>
+                         <select value={vehicleForm.service_type} onChange={e => setVehicleForm({ ...vehicleForm, service_type: e.target.value })}>
+                            <option value="Hospital" style={{ color: 'black' }}>Medical (Ambulance)</option>
+                            <option value="Police" style={{ color: 'black' }}>Police (Patrol)</option>
+                            <option value="Fire" style={{ color: 'black' }}>Fire (Truck)</option>
+                         </select>
+                       </div>
+                     </div>
+                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', alignItems: 'end' }}>
+                        <div><label>Station Latitude</label><input value={vehicleForm.current_lat.toFixed(6)} readOnly /></div>
+                        <div><label>Station Longitude</label><input value={vehicleForm.current_long.toFixed(6)} readOnly /></div>
+                     </div>
+                     <button type="submit" className="btn btn-secondary" style={{ marginTop: '0.5rem' }}>＋ Commission into Fleet</button>
+                  </form>
+                </div>
+                
+                {/* Station Map Picker */}
+                <div style={{ height: 350, position: 'relative', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: 10, left: 50, zIndex: 1000, background: 'rgba(0,0,0,0.7)', padding: '0.3rem 0.6rem', fontSize: '0.65rem', border: '1px solid var(--secondary)', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      Click map to assign parking station location
+                    </div>
+                    <MapContainer center={[5.6037, -0.1870]} zoom={12} style={{ height: '100%', width: '100%' }}>
+                      <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                      <LocationPicker position={[vehicleForm.current_lat, vehicleForm.current_long]} setPosition={(p) => setVehicleForm({...vehicleForm, current_lat: p[0], current_long: p[1]})} />
+                    </MapContainer>
+                </div>
               </div>
 
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Active Fleet — {vehicles.length} Units</div>
               <div style={{ overflowX: 'auto' }}>
                 <table>
                   <thead><tr><th>No. Plate</th><th>Vehicle Name</th><th>Parking Station</th><th>Service</th><th>Status</th><th>Actions</th></tr></thead>
@@ -358,14 +467,22 @@ const App = ({ token }) => {
                       <tr key={v.vehicle_id}>
                         <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{v.vehicle_id}</td>
                         <td style={{ fontWeight: 500 }}>{v.unit_name}</td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{v.parking_station || '—'}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{v.parking_station}</td>
                         <td>
-                           <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: '10px', background: v.service_type === 'Fire' ? 'rgba(255,69,0,0.1)' : v.service_type === 'Police' ? 'rgba(26,111,255,0.1)' : 'rgba(0,212,170,0.1)', color: v.service_type === 'Fire' ? '#ff6a3d' : v.service_type === 'Police' ? '#5599ff' : '#00d4aa' }}>
-                             {v.service_type === 'Hospital' ? 'Medical' : v.service_type}
+                           <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.6rem', borderRadius: '10px', background: v.service_type === 'Fire' ? 'rgba(255,69,0,0.1)' : v.service_type === 'Police' ? 'rgba(26,111,255,0.1)' : 'rgba(0,212,170,0.1)', color: v.service_type === 'Fire' ? '#ff6a3d' : v.service_type === 'Police' ? '#5599ff' : '#00d4aa' }}>
+                             {v.service_type}
                            </span>
                         </td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: v.is_available ? 'var(--secondary)' : 'var(--warning)' }}>{v.is_available ? 'Available' : 'Busy'}</td>
-                        <td><button onClick={() => handleRemoveVehicle(v.vehicle_id)} className="btn btn-ghost" style={{ color: 'var(--danger)', padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}>Decommission</button></td>
+                        <td>
+                          <select 
+                            value={v.status} 
+                            onChange={(e) => handleUpdateVehicleStatus(v.vehicle_id, e.target.value)}
+                            style={{ width: 'auto', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.75rem', padding: '0.15rem 0.3rem', color: v.status === 'READY' ? 'var(--secondary)' : v.status === 'FAULTY' ? 'var(--danger)' : 'var(--warning)' }}
+                          >
+                            {['READY', 'FAULTY', 'PENDING', 'DISPATCHED'].map(st => <option key={st} value={st} style={{ color: 'black' }}>{st}</option>)}
+                          </select>
+                        </td>
+                        <td><button onClick={() => handleRemoveVehicle(v.vehicle_id)} className="btn btn-ghost" style={{ color: 'var(--danger)', fontSize: '0.7rem' }}>Decommission</button></td>
                       </tr>
                     ))}
                   </tbody>

@@ -10,8 +10,7 @@ const vehicleSchema = new mongoose.Schema({
   target_lat: { type: Number, default: null },
   target_long: { type: Number, default: null },
   target_route: { type: Array, default: [] },
-  is_available: { type: Boolean, default: true },
-  status: { type: String, default: 'AVAILABLE' } 
+  status: { type: String, enum: ['READY', 'FAULTY', 'PENDING'], default: 'READY' } 
 });
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

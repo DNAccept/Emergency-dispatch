@@ -80,6 +80,36 @@ function MapClickHandler({ setDraftLocation }) {
   return null;
 }
 
+function createVehicleIcon(v, isSelected) {
+  const type = v.service_type || 'Hospital';
+  const status = v.status || 'READY';
+  const emoji = type === 'Fire' ? '🚒' : type === 'Police' ? '🚓' : '🚑';
+  const color = type === 'Fire' ? '#ff4500' : type === 'Police' ? '#1a6fff' : '#00d4aa';
+  const size = 24;
+  
+  let overlay = '';
+  let opacity = 1;
+
+  if (status === 'FAULTY') {
+    opacity = 0.3;
+    overlay = `<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ff3b30;font-size:${size}px;font-weight:900;line-height:0;text-shadow:0 0 5px #000">✕</div>`;
+  } else if (status === 'PENDING') {
+    opacity = 0.8;
+    overlay = `<div style="position:absolute;bottom:-4px;right:-4px;background:#ffcc00;color:#000;border-radius:50%;width:12px;height:12px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;border:1px solid #000">!</div>`;
+  }
+
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="width:${size}px;height:${size}px;background:#1a1d21;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(255,255,255,0.5);opacity:${opacity};position:relative">
+        <span style="font-size:14px">${emoji}</span>
+        ${overlay}
+      </div>
+    `,
+    iconSize: [size, size], iconAnchor: [size/2, size/2]
+  });
+}
+
 function createColoredIcon(color, type) {
   const icons = { Medical: HEALTH_SVG, Fire: FIRE_SVG, Crime: POLICE_SVG, Traffic: POLICE_SVG };
   const icon = icons[type] || HEALTH_SVG;
@@ -269,19 +299,13 @@ const App = ({ token, role: roleProp }) => {
             {/* Trail Lines & Responders */}
             {vehicles.map(v => (
               <React.Fragment key={v.vehicle_id}>
-                {v.target_route && v.target_route.length > 0 && (
+                {v.status === 'DISPATCHED' && v.target_route && v.target_route.length > 0 && (
                   <Polyline 
                     positions={[ [v.current_lat, v.current_long], ...v.target_route ]}
                     pathOptions={{ color: v.service_type === 'Fire' ? '#ff4500' : v.service_type === 'Police' ? '#1a6fff' : '#00d4aa', weight: 3, dashArray: '8, 8', opacity: 0.6 }}
                   />
                 )}
-                <Marker position={[v.current_lat, v.current_long]} icon={L.divIcon({
-                  className: '',
-                  html: `<div style="width:24px;height:24px;background:#1a1d21;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(255,255,255,0.5)">
-                          <span style="font-size:14px">${v.service_type === 'Fire' ? '🚒' : v.service_type === 'Police' ? '🚓' : '🚑'}</span>
-                         </div>`,
-                  iconSize: [24, 24], iconAnchor: [12, 12]
-                })}>
+                <Marker position={[v.current_lat, v.current_long]} icon={createVehicleIcon(v)}>
                   <Popup>Unit: {v.unit_name} ({v.status})</Popup>
                 </Marker>
               </React.Fragment>

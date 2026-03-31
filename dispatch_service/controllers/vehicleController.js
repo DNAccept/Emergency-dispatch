@@ -16,7 +16,7 @@ exports.registerVehicle = async (req, res) => {
 exports.updateLocationAndStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { current_lat, current_long, status, is_available } = req.body;
+    const { current_lat, current_long, status } = req.body;
 
     const vehicle = await Vehicle.findOne({ vehicle_id: id });
     if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
@@ -27,12 +27,13 @@ exports.updateLocationAndStatus = async (req, res) => {
     if (current_long !== undefined) vehicle.current_long = current_long;
     
     if (status !== undefined && vehicle.status !== status) {
+      if (!['READY', 'FAULTY', 'PENDING', 'DISPATCHED'].includes(status)) {
+         // I'll silently allow DISPATCHED but users see only 3
+      }
       vehicle.status = status;
       statusChanged = true;
     }
     
-    if (is_available !== undefined) vehicle.is_available = is_available;
-
     await vehicle.save();
 
     if (statusChanged) {
@@ -52,7 +53,7 @@ exports.updateLocationAndStatus = async (req, res) => {
 
 exports.getAvailableVehicles = async (req, res) => {
   try {
-    const vehicles = await Vehicle.find({ is_available: true });
+    const vehicles = await Vehicle.find({ status: 'READY' });
     res.json(vehicles);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -103,7 +104,6 @@ exports.dispatchVehicle = async (req, res) => {
     vehicle.target_lat = target_lat;
     vehicle.target_long = target_long;
     vehicle.target_route = routePoints;
-    vehicle.is_available = false;
     vehicle.status = 'DISPATCHED';
 
     await vehicle.save();

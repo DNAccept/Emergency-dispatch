@@ -40,18 +40,34 @@ L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
 
 const defaultCenter = [5.6037, -0.1870];
 
-function createVehicleIcon(type, available, isSelected) {
+function createVehicleIcon(type, status, isSelected) {
   const cfg = SERVICE_CONFIG[type] || SERVICE_CONFIG.Hospital;
   const c = cfg.color;
   const emoji = cfg.emoji;
-  const opacity = available ? 1 : 0.4;
   const size = isSelected ? 34 : 28;
   const glow = isSelected ? `0 0 15px ${c}, 0 0 5px #fff` : `0 0 8px ${c}`;
+  
+  let overlay = '';
+  let opacity = 1;
+
+  if (status === 'FAULTY') {
+    opacity = 0.3;
+    overlay = `<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ff3b30;font-size:${size}px;font-weight:900;line-height:0;transform:rotate(0deg);text-shadow:0 0 5px #000">✕</div>`;
+  } else if (status === 'PENDING') {
+    opacity = 0.8;
+    overlay = `<div style="position:absolute;bottom:-4px;right:-4px;background:#ffcc00;color:#000;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;border:1px solid #000">!</div>`;
+  } else if (status === 'DISPATCHED') {
+    opacity = 1;
+  } else if (status === 'READY') {
+    opacity = 1;
+  }
+
   return L.divIcon({
     className: '',
     html: `
-      <div style="width:${size}px;height:${size}px;background:#1a1d21;border:2px solid ${isSelected ? '#fff' : c};border-radius:50%;box-shadow:${glow};display:flex;align-items:center;justify-content:center;opacity:${opacity};transition:all 0.3s ease-out">
-        <span style="font-size:${size * 0.65}px">${emoji}</span>
+      <div style="width:${size}px;height:${size}px;background:#1a1d21;border:2px solid ${isSelected ? '#fff' : c};border-radius:50%;box-shadow:${glow};display:flex;align-items:center;justify-content:center;opacity:${opacity};transition:all 0.3s ease-out;position:relative">
+        <span style="font-size:${size * 0.6}px">${emoji}</span>
+        ${overlay}
       </div>
     `,
     iconSize: [size, size], iconAnchor: [size/2, size/2]
@@ -174,20 +190,20 @@ const App = ({ token }) => {
                 const cfg = SERVICE_CONFIG[v.service_type] || SERVICE_CONFIG.Hospital;
                 return (
                   <React.Fragment key={vid || Math.random()}>
-                    {v.target_route && v.target_route.length > 0 && (
+                    {v.status === 'DISPATCHED' && v.target_route && v.target_route.length > 0 && (
                       <Polyline 
                         positions={[ [lat, lng], ...v.target_route ]}
                         pathOptions={{ color: cfg.color, weight: 3, dashArray: '8, 8', opacity: 0.6 }}
                       />
                     )}
-                    <Marker position={[lat, lng]} icon={createVehicleIcon(v.service_type, v.is_available, isSelected)} eventHandlers={{ click: () => setSelectedVehicleId(vid) }}>
+                    <Marker position={[lat, lng]} icon={createVehicleIcon(v.service_type, v.status, isSelected)} eventHandlers={{ click: () => setSelectedVehicleId(vid) }}>
                       <Popup>
                         <div style={{ fontFamily: 'sans-serif', minWidth: 150 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: cfg.color, fontWeight: 700 }}>
                             <img src={cfg.icon} style={{ width: 16, height: 16 }} /> {v.unit_name || v.type || 'Unit'}
                           </div>
-                          <span style={{ color: '#666', fontSize: '0.8rem' }}>Service: {v.service_type}</span><br />
-                          <span style={{ color: v.is_available ? '#00d4aa' : '#ff4500', fontSize: '0.8rem' }}>{v.is_available ? '● Available' : '● Deployed'}</span>
+                          <span style={{ color: '#666', fontSize: '0.8rem' }}>Station: {v.parking_station}</span><br />
+                          <span style={{ color: v.status === 'READY' ? '#00d4aa' : v.status === 'FAULTY' ? '#ff3b30' : '#ffcc00', fontSize: '0.8rem', fontWeight: 700 }}>● {v.status}</span>
                         </div>
                       </Popup>
                     </Marker>
@@ -215,7 +231,7 @@ const App = ({ token }) => {
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-dim)', lineHeight: 1.6 }}>
                     <div>{cfg.label}</div>
                     <div>{lat.toFixed(4)}, {lng.toFixed(4)}</div>
-                    <div style={{ color: v.is_available ? 'var(--secondary)' : 'var(--primary)' }}>{v.is_available ? '● Available' : '● Deployed'}</div>
+                    <div style={{ color: v.status === 'READY' ? 'var(--secondary)' : v.status === 'FAULTY' ? 'var(--danger)' : 'var(--warning)', fontWeight: 600 }}>● {v.status}</div>
                   </div>
                 </div>
               );
