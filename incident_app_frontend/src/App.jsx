@@ -117,9 +117,9 @@ const App = ({ token, role: roleProp }) => {
   };
 
   const fetchVehicles = () => {
-    fetch('https://dispatch-service-v690.onrender.com/vehicles/available', { headers: { 'Authorization': `Bearer ${jwt}` } })
+    fetch('https://dispatch-service-v690.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } })
       .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) setVehicles(d.filter(v => v.status === 'DISPATCHED' || v.status === 'ON_SCENE')); })
+      .then(d => { if (Array.isArray(d)) setVehicles(d); })
       .catch(console.error);
   };
 

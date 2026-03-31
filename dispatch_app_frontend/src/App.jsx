@@ -87,7 +87,7 @@ const App = ({ token }) => {
 
   useEffect(() => {
     const fetchVehicles = () => {
-      fetch('https://dispatch-service-tjgl.onrender.com/vehicles/available', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      fetch('https://dispatch-service-v690.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } })
         .then(r => r.json())
         .then(d => { setVehicles(Array.isArray(d) ? d : (d.vehicles || [])); setLoading(false); })
         .catch(() => setLoading(false));

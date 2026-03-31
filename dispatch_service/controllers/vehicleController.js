@@ -59,6 +59,15 @@ exports.getAvailableVehicles = async (req, res) => {
   }
 };
 
+exports.getAllVehicles = async (req, res) => {
+  try {
+    const vehicles = await Vehicle.find({});
+    res.json(vehicles);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.getVehicleStatus = async (req, res) => {
   try {
     const { id } = req.params;
