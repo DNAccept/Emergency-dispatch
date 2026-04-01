@@ -85,10 +85,10 @@ function LocationPicker({ position, setPosition }) {
 }
 
 const App = ({ token }) => {
-  const AUTH_URL = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:3001';
-  const DISPATCH_URL = import.meta.env.VITE_DISPATCH_SERVICE_URL || 'http://localhost:3003';
-  const ANALYTICS_URL = import.meta.env.VITE_ANALYTICS_SERVICE_URL || 'http://localhost:3004';
-  const INCIDENT_URL = import.meta.env.VITE_INCIDENT_SERVICE_URL || 'http://localhost:3002';
+  const AUTH_URL = import.meta.env.VITE_AUTH_SERVICE_URL || 'https://auth-service-spk6.onrender.com';
+  const DISPATCH_URL = import.meta.env.VITE_DISPATCH_SERVICE_URL || 'https://dispatch-service.onrender.com';
+  const ANALYTICS_URL = import.meta.env.VITE_ANALYTICS_SERVICE_URL || 'https://analytics-service-9yox.onrender.com';
+  const INCIDENT_URL = import.meta.env.VITE_INCIDENT_SERVICE_URL || 'https://incident-service-9yox.onrender.com';
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -187,7 +187,7 @@ const App = ({ token }) => {
     fetchData();
     const i = setInterval(fetchData, 5000);
     return () => clearInterval(i);
-  }, [jwt, managedStation]);
+  }, [jwt, managedStation, isSystemAdmin, isHospitalAdmin, isPoliceAdmin, isFireAdmin]);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [diagnostics, setDiagnostics] = useState({ auth: '...', dispatch: '...', analytics: '...', incident: '...' });

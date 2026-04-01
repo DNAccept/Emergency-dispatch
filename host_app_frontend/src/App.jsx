@@ -102,6 +102,8 @@ class ErrorBoundary extends React.Component {
 }
 
 function App() {
+  const AUTH_URL = import.meta.env.VITE_AUTH_SERVICE_URL || 'https://auth-service-spk6.onrender.com';
+
   const [token, setToken]               = useState(null);
   const [profile, setProfile]           = useState(null);
   const [email, setEmail]               = useState('');
@@ -114,7 +116,7 @@ function App() {
   // ─── Fetch profile whenever we get a token ──────────────────────────────────
   useEffect(() => {
     if (!token) { setProfile(null); return; }
-    fetch('https://auth-service-spk6.onrender.com/auth/profile', {
+    fetch(`${AUTH_URL}/auth/profile`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(r => r.json())
@@ -132,7 +134,7 @@ function App() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const res = await fetch('https://auth-service-spk6.onrender.com/auth/login', {
+      const res = await fetch(`${AUTH_URL}/auth/login`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
