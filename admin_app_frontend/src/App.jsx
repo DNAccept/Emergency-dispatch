@@ -14,6 +14,8 @@ const ROLE_COLORS = {
   HOSPITAL_ADMIN: { bg: 'rgba(0,212,170,0.1)', color: '#00d4aa', border: 'rgba(0,212,170,0.3)' },
   POLICE_ADMIN: { bg: 'rgba(26,111,255,0.1)', color: '#5599ff', border: 'rgba(26,111,255,0.3)' },
   FIRE_ADMIN: { bg: 'rgba(255,69,0,0.12)', color: '#ff6a3d', border: 'rgba(255,69,0,0.35)' },
+  RESPONDER: { bg: 'rgba(255,255,255,0.05)', color: '#e0e0e0', border: 'rgba(255,255,255,0.1)' },
+  GOVT_EXECUTIVE: { bg: 'rgba(155,89,182,0.1)', color: '#af7ac5', border: 'rgba(155,89,182,0.3)' },
 };
 
 function RoleBadge({ role }) {
@@ -494,7 +496,7 @@ const App = ({ token }) => {
       {isSystemAdmin && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {['users', 'fleet', 'resources'].map(tab => (
+            {(isSystemAdmin ? ['users'] : ['users', 'fleet', 'resources']).map(tab => (
               <button key={tab} onClick={() => setActiveSubTab(tab)} className="btn" style={{ flex: 1, background: activeSubTab === tab ? 'rgba(255,69,0,0.15)' : 'rgba(255,255,255,0.04)', color: activeSubTab === tab ? 'var(--primary)' : 'var(--text-muted)' }}>{tab}</button>
             ))}
           </div>
@@ -542,7 +544,7 @@ const App = ({ token }) => {
                    <input placeholder="Email" value={registerForm.email} onChange={e => setRegisterForm({ ...registerForm, email: e.target.value })} required />
                    <input type="password" placeholder="Password" value={registerForm.password} onChange={e => setRegisterForm({ ...registerForm, password: e.target.value })} required />
                    <select value={registerForm.role} onChange={e => setRegisterForm({ ...registerForm, role: e.target.value })}>
-                      {['SYSTEM_ADMIN','HOSPITAL_ADMIN','POLICE_ADMIN','FIRE_ADMIN'].map(r => <option key={r} value={r} style={{ color: 'black' }}>{r}</option>)}
+                      {['SYSTEM_ADMIN','HOSPITAL_ADMIN','POLICE_ADMIN','FIRE_ADMIN', 'RESPONDER', 'GOVT_EXECUTIVE'].map(r => <option key={r} value={r} style={{ color: 'black' }}>{r}</option>)}
                    </select>
                    <input placeholder="Station Name" value={registerForm.managed_station} onChange={e => setRegisterForm({ ...registerForm, managed_station: e.target.value })} />
                    <button type="submit" className="btn btn-primary">Register</button>
