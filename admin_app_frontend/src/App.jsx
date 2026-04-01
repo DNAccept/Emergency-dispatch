@@ -85,6 +85,11 @@ function LocationPicker({ position, setPosition }) {
 }
 
 const App = ({ token }) => {
+  const AUTH_URL = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:3001';
+  const DISPATCH_URL = import.meta.env.VITE_DISPATCH_SERVICE_URL || 'http://localhost:3003';
+  const ANALYTICS_URL = import.meta.env.VITE_ANALYTICS_SERVICE_URL || 'http://localhost:3004';
+  const INCIDENT_URL = import.meta.env.VITE_INCIDENT_SERVICE_URL || 'http://localhost:3002';
+
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
@@ -105,7 +110,7 @@ const App = ({ token }) => {
 
   useEffect(() => {
     if (jwt) {
-      fetch('https://auth-service-spk6.onrender.com/auth/profile', { headers: { 'Authorization': `Bearer ${jwt}` } })
+      fetch(`${AUTH_URL}/auth/profile`, { headers: { 'Authorization': `Bearer ${jwt}` } })
         .then(r => r.json()).then(d => setProfile(d)).catch(console.error);
     }
   }, [jwt]);
@@ -119,10 +124,10 @@ const App = ({ token }) => {
 
   const runDiagnostics = async () => {
     const urls = {
-      auth: 'https://auth-service-spk6.onrender.com/health',
-      dispatch: 'https://dispatch-service.onrender.com/health',
-      analytics: 'https://analytics-service-9yox.onrender.com/health',
-      incident: 'https://incident-service-9yox.onrender.com/health'
+      auth: `${AUTH_URL}/health`,
+      dispatch: `${DISPATCH_URL}/health`,
+      analytics: `${ANALYTICS_URL}/health`,
+      incident: `${INCIDENT_URL}/health`
     };
     const results = {};
     for (const [key, url] of Object.entries(urls)) {
@@ -143,24 +148,23 @@ const App = ({ token }) => {
   const fetchData = async () => {
     if (!jwt) return;
     try {
-      console.log('Fetching collective data...');
-      const vRes = await fetch('https://dispatch-service.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } });
+      console.log(`Fetching collective data from ${AUTH_URL}...`);
+      const vRes = await fetch(`${DISPATCH_URL}/vehicles/`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       const vData = await vRes.json();
       if (Array.isArray(vData)) setVehicles(vData);
 
-      const analyticsUrl = 'https://analytics-service-9yox.onrender.com/analytics';
-      const sRes = await fetch(`${analyticsUrl}/stations`, { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const sRes = await fetch(`${ANALYTICS_URL}/stations`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       const sData = await sRes.json();
       if (Array.isArray(sData)) setStations(sData);
 
       const pQuery = isSystemAdmin ? '' : `?station_name=${encodeURIComponent(managedStation)}&service_type=${isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire'}`;
-      const pRes = await fetch(`${analyticsUrl}/personnel${pQuery}`, { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const pRes = await fetch(`${ANALYTICS_URL}/personnel${pQuery}`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       const pData = await pRes.json();
       if (Array.isArray(pData)) setPersonnel(pData);
       
       if (isSystemAdmin) {
         console.log('System Admin role detected. Fetching full user registry...');
-        const uRes = await fetch('https://auth-service-spk6.onrender.com/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } });
+        const uRes = await fetch(`${AUTH_URL}/auth/users`, { headers: { 'Authorization': `Bearer ${jwt}` } });
         const uData = await uRes.json();
         console.log(`Fetched ${uData.length || 0} users from database.`);
         if (Array.isArray(uData)) {
@@ -205,7 +209,7 @@ const App = ({ token }) => {
     setStationStats(newStats); 
     setIsSyncing(true);
     try {
-      const res = await fetch('https://analytics-service-9yox.onrender.com/analytics/stations/update', {
+      const res = await fetch(`${ANALYTICS_URL}/stations/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({
@@ -234,7 +238,7 @@ const App = ({ token }) => {
     setPersonnel([...personnel, optimisticStaff]);
     setIsSyncing(true);
     try {
-      const res = await fetch('https://analytics-service-9yox.onrender.com/analytics/personnel/register', {
+      const res = await fetch(`${ANALYTICS_URL}/personnel/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({
@@ -265,7 +269,7 @@ const App = ({ token }) => {
     setPersonnel(personnel.filter(p => p._id !== id));
     setIsSyncing(true);
     try {
-      const res = await fetch(`https://analytics-service-9yox.onrender.com/analytics/personnel/${id}`, {
+      const res = await fetch(`${ANALYTICS_URL}/personnel/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${jwt}` }
       });
@@ -283,7 +287,7 @@ const App = ({ token }) => {
   const handleUpdateUserStation = async (userId) => {
     setIsSyncing(true);
     try {
-      const res = await fetch(`https://auth-service-spk6.onrender.com/auth/users/${userId}/station`, {
+      const res = await fetch(`${AUTH_URL}/auth/users/${userId}/station`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -308,7 +312,7 @@ const App = ({ token }) => {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('https://auth-service-spk6.onrender.com/auth/register', {
+      const res = await fetch(`${AUTH_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify(registerForm)
@@ -334,7 +338,7 @@ const App = ({ token }) => {
     }
 
     try {
-      const res = await fetch('https://dispatch-service.onrender.com/vehicles/register', {
+      const res = await fetch(`${DISPATCH_URL}/vehicles/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify(finalVehicle)
@@ -355,7 +359,7 @@ const App = ({ token }) => {
 
   const handleUpdateVehicleStatus = async (id, status) => {
     try {
-      await fetch(`https://dispatch-service.onrender.com/vehicles/${id}/status`, {
+      await fetch(`${DISPATCH_URL}/vehicles/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({ status })
@@ -367,7 +371,7 @@ const App = ({ token }) => {
   const handleRemoveVehicle = async (id) => {
     if (!window.confirm(`Are you sure you want to decommission unit ${id}?`)) return;
     try {
-       await fetch(`https://dispatch-service.onrender.com/vehicles/${id}`, {
+       await fetch(`${DISPATCH_URL}/vehicles/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${jwt}` }
       });
