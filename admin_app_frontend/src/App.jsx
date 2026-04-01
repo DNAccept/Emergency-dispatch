@@ -337,21 +337,31 @@ const App = ({ token }) => {
 
   const handleAddVehicle = async (e) => {
     e.preventDefault();
-    const finalVehicle = {
-      ...vehicleForm,
-      parking_station: managedStation || vehicleForm.parking_station,
-      service_type: isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : isFireAdmin ? 'Fire' : vehicleForm.service_type
-    };
+    
+    let finalPayload;
+    if (isSystemAdmin) {
+      if (!vehicleForm.service_type || !vehicleForm.parking_station) {
+        alert('System Admin must explicitly select a service type and destination station.');
+        return;
+      }
+      finalPayload = { ...vehicleForm };
+    } else {
+      finalPayload = {
+        ...vehicleForm,
+        parking_station: managedStation || vehicleForm.parking_station,
+        service_type: isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : isFireAdmin ? 'Fire' : vehicleForm.service_type
+      };
+    }
 
-    if (!finalVehicle.vehicle_id || !finalVehicle.unit_name) {
-      alert('Please fill in all fields.'); return;
+    if (!finalPayload.vehicle_id || !finalPayload.unit_name) {
+      alert('Please fill in all vehicle identifying fields.'); return;
     }
 
     try {
       const res = await fetch(`${DISPATCH_URL}/vehicles/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
-        body: JSON.stringify(finalVehicle)
+        body: JSON.stringify(finalPayload)
       });
       if (res.ok) {
         alert('Response Unit commissioned successfully!');
@@ -639,16 +649,67 @@ const App = ({ token }) => {
           )}
 
           {activeSubTab === 'fleet' && (
-             <div style={{ height: 400, borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', marginBottom: '1.5rem' }}>
-                <MapContainer center={[5.6037, -0.1870]} zoom={11} style={{ height: '100%', width: '100%' }}>
-                  <SearchBox />
-                  <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                  {vehicles.map(v => (
-                    <Marker key={v.vehicle_id} position={[v.current_lat, v.current_long]}>
-                      <Popup>Unit: {v.unit_name} ({v.status})</Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
+             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+               <div style={{ height: 400, borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', marginBottom: '1.5rem' }}>
+                  <MapContainer center={[5.6037, -0.1870]} zoom={11} style={{ height: '100%', width: '100%' }}>
+                    <SearchBox />
+                    <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                    {vehicles.map(v => (
+                      <Marker key={v.vehicle_id} position={[v.current_lat, v.current_long]}>
+                        <Popup>Unit: {v.unit_name} ({v.status})</Popup>
+                      </Marker>
+                    ))}
+                    <LocationPicker position={[vehicleForm.current_lat, vehicleForm.current_long]} setPosition={(p) => setVehicleForm({...vehicleForm, current_lat: p[0], current_long: p[1]})} />
+                  </MapContainer>
+               </div>
+
+               <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', padding: '1.25rem' }}>
+                 <div className="section-sub-label">Global Registry: Commission Unit</div>
+                 <form onSubmit={handleAddVehicle} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                     <input placeholder="Plate No." value={vehicleForm.vehicle_id} onChange={e => setVehicleForm({ ...vehicleForm, vehicle_id: e.target.value })} required style={{ fontSize: '0.8rem' }} />
+                     <input placeholder="Unit Name" value={vehicleForm.unit_name} onChange={e => setVehicleForm({ ...vehicleForm, unit_name: e.target.value })} required style={{ fontSize: '0.8rem' }} />
+                   </div>
+                   
+                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                     <select value={vehicleForm.service_type} onChange={e => setVehicleForm({ ...vehicleForm, service_type: e.target.value })} style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
+                        {['Hospital', 'Police', 'Fire'].map(s => <option key={s} value={s} style={{ color: 'black' }}>{s}</option>)}
+                     </select>
+                     
+                     <select value={vehicleForm.parking_station} onChange={e => setVehicleForm({ ...vehicleForm, parking_station: e.target.value })} style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
+                        <option value="" disabled style={{ color: 'black' }}>Select Destination Station</option>
+                        {stations.filter(s => s.service_type === vehicleForm.service_type).map(s => (
+                           <option key={s._id} value={s.name} style={{ color: 'black' }}>{s.name}</option>
+                        ))}
+                     </select>
+                   </div>
+
+                   <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                     <span>Loc Lat: {vehicleForm.current_lat.toFixed(6)}</span>
+                     <span>Loc Long: {vehicleForm.current_long.toFixed(6)}</span>
+                     <span>(Click map to pinpoint)</span>
+                   </div>
+                   
+                   <button type="submit" className="btn btn-secondary" style={{ padding: '0.5rem', marginTop: '0.5rem' }}>+ Commission & Assign Unit</button>
+                 </form>
+
+                 <div className="section-sub-label" style={{ marginTop: '1.5rem' }}>Global Vehicle Directory</div>
+                 <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                   <table style={{ fontSize: '0.7rem' }}>
+                     <thead><tr><th>Plate</th><th>Service</th><th>Station</th><th>Actions</th></tr></thead>
+                     <tbody>
+                       {vehicles.map(v => (
+                         <tr key={v.vehicle_id}>
+                           <td>{v.vehicle_id} <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)' }}>{v.unit_name}</div></td>
+                           <td>{v.service_type}</td>
+                           <td>{v.parking_station}</td>
+                           <td><button onClick={() => handleRemoveVehicle(v.vehicle_id)} style={{ color: 'var(--danger)', padding: 0, background: 'none' }}>Revoke</button></td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
              </div>
           )}
         </div>
