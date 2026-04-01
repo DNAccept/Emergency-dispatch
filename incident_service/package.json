@@ -12,7 +12,9 @@
     "amqplib": "^0.10.3",
     "axios": "^1.6.0",
     "dotenv": "^16.4.0",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

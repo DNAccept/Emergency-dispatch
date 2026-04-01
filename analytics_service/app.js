@@ -4,10 +4,35 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const { connectRabbitMQ } = require('./rabbitmq');
 const analyticsRoutes = require('./routes/analytics');
+const swaggerJsDoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 
 const app = express();
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json());
+
+// Swagger Configuration
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Analytics Service API',
+      version: '1.0.0',
+      description: 'API for System Aggregation and Monitoring Insights'
+    },
+    servers: [
+      { url: process.env.APP_URL || `http://localhost:${process.env.PORT || 4004}` }
+    ]
+  },
+  apis: ['./routes/*.js']
+};
+
+const swaggerSpec = swaggerJsDoc(swaggerOptions);
+app.get('/api-docs/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Connect DB
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27018/analytics_db')
@@ -17,7 +42,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27018/analytics_d
 // Connect RabbitMQ Consumer
 connectRabbitMQ();
 
-app.get('/', (req, res) => res.json({ status: 'OK', service: 'analytics-service', version: '1.2.0' }));
+app.get('/', (req, res) => res.redirect('/api-docs'));
 app.get('/health', (req, res) => res.json({ status: 'OK', service: 'analytics_service' }));
 app.use('/analytics', analyticsRoutes);
 
