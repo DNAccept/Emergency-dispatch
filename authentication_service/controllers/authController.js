@@ -84,3 +84,18 @@ exports.getUsers = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.updateStation = async (req, res) => {
+  try {
+    if (req.user.role !== 'SYSTEM_ADMIN') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    const { id } = req.params;
+    const { managed_station } = req.body;
+    
+    await pool.query('UPDATE users SET managed_station = $1 WHERE user_id = $2', [managed_station, id]);
+    res.json({ message: 'Station updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

@@ -100,6 +100,8 @@ const App = ({ token }) => {
   const [personnel, setPersonnel] = useState([]);
   const [stationStats, setStationStats] = useState({ beds: 0, total_beds: 0, ambulances: 0, fire_trucks: 0, readiness: 'High' });
   const [newStaff, setNewStaff] = useState({ name: '', role: '', status: 'Available' });
+  const [editingUser, setEditingUser] = useState(null);
+  const [editStationValue, setEditStationValue] = useState('');
 
   useEffect(() => {
     if (jwt) {
@@ -141,6 +143,7 @@ const App = ({ token }) => {
   const fetchData = async () => {
     if (!jwt) return;
     try {
+      console.log('Fetching collective data...');
       const vRes = await fetch('https://dispatch-service.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } });
       const vData = await vRes.json();
       if (Array.isArray(vData)) setVehicles(vData);
@@ -156,15 +159,21 @@ const App = ({ token }) => {
       if (Array.isArray(pData)) setPersonnel(pData);
       
       if (isSystemAdmin) {
+        console.log('System Admin role detected. Fetching full user registry...');
         const uRes = await fetch('https://auth-service-spk6.onrender.com/auth/users', { headers: { 'Authorization': `Bearer ${jwt}` } });
         const uData = await uRes.json();
-        if (Array.isArray(uData)) setUsers(uData);
+        console.log(`Fetched ${uData.length || 0} users from database.`);
+        if (Array.isArray(uData)) {
+          setUsers(uData);
+        } else {
+          console.error('User data is not an array:', uData);
+        }
       }
       
       runDiagnostics();
       setLoading(false);
     } catch (err) { 
-      console.error(err);
+      console.error('Data fetch error:', err);
       setLoading(false); 
       runDiagnostics();
     }
@@ -266,6 +275,31 @@ const App = ({ token }) => {
       console.error(err); 
       setPersonnel(oldPersonnel);
       alert('Failed to remove staff member. Reverting changes.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleUpdateUserStation = async (userId) => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch(`https://auth-service-spk6.onrender.com/auth/users/${userId}/station`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`
+        },
+        body: JSON.stringify({ managed_station: editStationValue })
+      });
+      if (res.ok) {
+        setEditingUser(null);
+        fetchData();
+      } else {
+        alert('Failed to update station');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error updating station');
     } finally {
       setIsSyncing(false);
     }
@@ -552,15 +586,40 @@ const App = ({ token }) => {
                )}
                <table style={{ marginTop: '1rem' }}>
                  <thead><tr><th>Name</th><th>Role</th><th>Station</th></tr></thead>
-                 <tbody>
-                   {users.map(u => (
-                     <tr key={u.user_id}>
-                       <td>{u.name}</td>
-                       <td><RoleBadge role={u.role} /></td>
-                       <td>{u.managed_station || '—'}</td>
-                     </tr>
-                   ))}
-                 </tbody>
+                  <tbody>
+                    {users.map(u => (
+                      <tr key={u.user_id}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{u.name}</div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>{u.email}</div>
+                        </td>
+                        <td><RoleBadge role={u.role} /></td>
+                        <td>
+                          {editingUser === u.user_id ? (
+                            <div style={{ display: 'flex', gap: '0.3rem' }}>
+                              <input 
+                                value={editStationValue} 
+                                onChange={e => setEditStationValue(e.target.value)} 
+                                style={{ fontSize: '0.75rem', padding: '0.1rem 0.3rem', width: '120px' }}
+                              />
+                              <button onClick={() => handleUpdateUserStation(u.user_id)} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 0.4rem', cursor: 'pointer' }}>✓</button>
+                              <button onClick={() => setEditingUser(null)} style={{ background: 'var(--text-muted)', color: 'white', border: 'none', padding: '0 0.4rem', cursor: 'pointer' }}>✕</button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span>{u.managed_station || '—'}</span>
+                              <button 
+                                onClick={() => { setEditingUser(u.user_id); setEditStationValue(u.managed_station || ''); }} 
+                                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.7rem', padding: 0 }}
+                              >
+                                ✎
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                </table>
             </div>
           )}

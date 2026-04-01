@@ -73,6 +73,32 @@ router.get('/profile', authenticate, profile);
 
 /**
  * @swagger
+ * /auth/users/{id}/station:
+ *   patch:
+ *     summary: Update user's managed station
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               managed_station: { type: string }
+ *     responses:
+ *       200: { description: Station updated }
+ */
+router.patch('/users/:id/station', authenticate, updateStation);
+
+/**
+ * @swagger
  * /auth/users:
  *   get:
  *     summary: Get all system users
