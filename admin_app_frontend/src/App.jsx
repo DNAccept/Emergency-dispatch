@@ -147,40 +147,50 @@ const App = ({ token }) => {
 
   const fetchData = async () => {
     if (!jwt) return;
+    
+    // Fetch Vehicles
     try {
-      console.log(`Fetching collective data from ${AUTH_URL}...`);
       const vRes = await fetch(`${DISPATCH_URL}/vehicles/`, { headers: { 'Authorization': `Bearer ${jwt}` } });
-      const vData = await vRes.json();
-      if (Array.isArray(vData)) setVehicles(vData);
+      if (vRes.ok) {
+        const vData = await vRes.json();
+        if (Array.isArray(vData)) setVehicles(vData);
+      }
+    } catch (err) { console.error('Dispatch API Error:', err); }
 
+    // Fetch Stations
+    try {
       const sRes = await fetch(`${ANALYTICS_URL}/stations`, { headers: { 'Authorization': `Bearer ${jwt}` } });
-      const sData = await sRes.json();
-      if (Array.isArray(sData)) setStations(sData);
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (Array.isArray(sData)) setStations(sData);
+      }
+    } catch (err) { console.error('Analytics Stations API Error:', err); }
 
+    // Fetch Personnel
+    try {
       const pQuery = isSystemAdmin ? '' : `?station_name=${encodeURIComponent(managedStation)}&service_type=${isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire'}`;
       const pRes = await fetch(`${ANALYTICS_URL}/personnel${pQuery}`, { headers: { 'Authorization': `Bearer ${jwt}` } });
-      const pData = await pRes.json();
-      if (Array.isArray(pData)) setPersonnel(pData);
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        if (Array.isArray(pData)) setPersonnel(pData);
+      }
+    } catch (err) { console.error('Analytics Personnel API Error:', err); }
       
-      if (isSystemAdmin) {
+    // Fetch Users (System Admin Only)
+    if (isSystemAdmin) {
+      try {
         console.log('System Admin role detected. Fetching full user registry...');
         const uRes = await fetch(`${AUTH_URL}/auth/users`, { headers: { 'Authorization': `Bearer ${jwt}` } });
-        const uData = await uRes.json();
-        console.log(`Fetched ${uData.length || 0} users from database.`);
-        if (Array.isArray(uData)) {
-          setUsers(uData);
-        } else {
-          console.error('User data is not an array:', uData);
+        if (uRes.ok) {
+          const uData = await uRes.json();
+          console.log(`Fetched ${uData.length || 0} users from database.`);
+          if (Array.isArray(uData)) setUsers(uData);
         }
-      }
-      
-      runDiagnostics();
-      setLoading(false);
-    } catch (err) { 
-      console.error('Data fetch error:', err);
-      setLoading(false); 
-      runDiagnostics();
+      } catch (err) { console.error('Auth Users API Error:', err); }
     }
+      
+    runDiagnostics();
+    setLoading(false);
   };
 
   useEffect(() => {
