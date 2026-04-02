@@ -107,6 +107,8 @@ const App = ({ token }) => {
   const [newStaff, setNewStaff] = useState({ name: '', role: '' });
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [editingStaffForm, setEditingStaffForm] = useState({ name: '', role: '' });
+  const [editingVehicleId, setEditingVehicleId] = useState(null);
+  const [editingVehicleForm, setEditingVehicleForm] = useState({ unit_name: '' });
   const [users, setUsers] = useState([]);
   const [editingUser, setEditingUser] = useState(null);
   const [editStationValue, setEditStationValue] = useState('');
@@ -330,6 +332,25 @@ const App = ({ token }) => {
     } catch (err) {
       console.error(err);
       alert('Failed to update staff member.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleEditVehicleSave = async (id) => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch(`${DISPATCH_URL}/vehicles/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+        body: JSON.stringify(editingVehicleForm)
+      });
+      if (!res.ok) throw new Error('Edit failed');
+      setEditingVehicleId(null);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update vehicle.');
     } finally {
       setIsSyncing(false);
     }
@@ -587,13 +608,37 @@ const App = ({ token }) => {
                  {vehicles.filter(v => v.parking_station === managedStation).map(v => (
                    <tr key={v.vehicle_id}>
                      <td>{v.vehicle_id}</td>
-                     <td>{v.unit_name}</td>
+                     <td>
+                        {editingVehicleId === v.vehicle_id ? (
+                          <input 
+                            value={editingVehicleForm.unit_name} 
+                            onChange={e => setEditingVehicleForm({...editingVehicleForm, unit_name: e.target.value})} 
+                            style={{ fontSize: '0.75rem', padding: '0.2rem', width: '120px' }} 
+                            autoFocus
+                          />
+                        ) : (
+                          <span style={{ cursor: 'pointer', borderBottom: '1px dashed #666' }} onClick={() => { setEditingVehicleId(v.vehicle_id); setEditingVehicleForm({ unit_name: v.unit_name }); }}>
+                            {v.unit_name}
+                          </span>
+                        )}
+                     </td>
                      <td>
                         <select value={v.status} onChange={(e) => handleUpdateVehicleStatus(v.vehicle_id, e.target.value)} style={{ padding: '0.1rem', fontSize: '0.7rem', background: 'transparent' }}>
                            {['READY', 'FAULTY', 'PENDING'].map(s => <option key={s} value={s} style={{ color: 'black' }}>{s}</option>)}
                         </select>
                      </td>
-                     <td><button onClick={() => handleRemoveVehicle(v.vehicle_id)} style={{ color: 'var(--danger)', padding: 0, background: 'none' }}>Remove</button></td>
+                     <td>
+                       <div style={{ display: 'flex', gap: '0.5rem' }}>
+                         {editingVehicleId === v.vehicle_id ? (
+                           <>
+                             <button onClick={() => handleEditVehicleSave(v.vehicle_id)} style={{ color: 'var(--primary)', padding: 0, background: 'none' }}>Save</button>
+                             <button onClick={() => setEditingVehicleId(null)} style={{ color: 'var(--text-muted)', padding: 0, background: 'none' }}>Cancel</button>
+                           </>
+                         ) : (
+                           <button onClick={() => handleRemoveVehicle(v.vehicle_id)} style={{ color: 'var(--danger)', padding: 0, background: 'none' }}>Remove</button>
+                         )}
+                       </div>
+                     </td>
                    </tr>
                  ))}
                </tbody>

@@ -13,6 +13,24 @@ exports.registerVehicle = async (req, res) => {
   }
 };
 
+exports.updateVehicleInfo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { unit_name, parking_station } = req.body;
+
+    const vehicle = await Vehicle.findOne({ vehicle_id: id });
+    if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+
+    if (unit_name !== undefined) vehicle.unit_name = unit_name;
+    if (parking_station !== undefined) vehicle.parking_station = parking_station;
+
+    await vehicle.save();
+    res.json(vehicle);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.updateLocationAndStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -91,14 +109,24 @@ exports.dispatchVehicle = async (req, res) => {
     let routePoints = [];
     try {
       const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${vehicle.current_long},${vehicle.current_lat};${target_long},${target_lat}?overview=full&geometries=geojson`;
-      const osrmRes = await axios.get(osrmUrl);
+      const osrmRes = await axios.get(osrmUrl, {
+        headers: { 'User-Agent': 'TacticalDispatchSystem/1.0 (Integration Task)' },
+        timeout: 10000
+      });
       if (osrmRes.data.routes && osrmRes.data.routes[0]) {
         // GeoJSON coordinates are [lng, lat]
         routePoints = osrmRes.data.routes[0].geometry.coordinates.map(pt => [pt[1], pt[0]]);
       }
     } catch (osrmErr) {
-      console.error('OSRM Routing failed, falling back to straight line:', osrmErr.message);
-      routePoints = [[vehicle.current_lat, vehicle.current_long], [target_lat, target_long]];
+      console.error('OSRM Routing failed, falling back to interpolated line:', osrmErr.message);
+      // Interpolate 30 points between current and target
+      const numPoints = 30;
+      for (let i = 0; i <= numPoints; i++) {
+        const fraction = i / numPoints;
+        const lat = vehicle.current_lat + (target_lat - vehicle.current_lat) * fraction;
+        const lng = vehicle.current_long + (target_long - vehicle.current_long) * fraction;
+        routePoints.push([lat, lng]);
+      }
     }
 
     vehicle.target_lat = target_lat;

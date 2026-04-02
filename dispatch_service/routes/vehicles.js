@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerVehicle, updateLocationAndStatus, getAvailableVehicles, getVehicleStatus, dispatchVehicle, getAllVehicles, deleteVehicle } = require('../controllers/vehicleController');
+const { registerVehicle, updateLocationAndStatus, getAvailableVehicles, getVehicleStatus, dispatchVehicle, getAllVehicles, deleteVehicle, updateVehicleInfo } = require('../controllers/vehicleController');
 
 /**
  * @swagger
@@ -27,6 +27,7 @@ const { registerVehicle, updateLocationAndStatus, getAvailableVehicles, getVehic
 router.post('/register', registerVehicle);
 router.post('/:id/location', updateLocationAndStatus);
 router.patch('/:id/status', updateLocationAndStatus);
+router.put('/:id', updateVehicleInfo);
 router.post('/:id/dispatch', dispatchVehicle);
 
 /**
