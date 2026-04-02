@@ -5,7 +5,12 @@ const axios = require('axios');
 exports.registerVehicle = async (req, res) => {
   try {
     const { vehicle_id, service_type, unit_name, parking_station, current_lat, current_long } = req.body;
-    const newVehicle = new Vehicle({ vehicle_id, service_type, unit_name, parking_station, current_lat, current_long });
+    const newVehicle = new Vehicle({ 
+      vehicle_id, service_type, unit_name, parking_station, 
+      current_lat, current_long,
+      base_lat: current_lat,
+      base_long: current_long
+    });
     await newVehicle.save();
     res.status(201).json(newVehicle);
   } catch (err) {

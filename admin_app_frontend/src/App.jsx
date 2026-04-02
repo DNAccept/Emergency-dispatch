@@ -284,7 +284,7 @@ const App = ({ token }) => {
         const d = await res.json();
         throw new Error(d.message || d.error || 'Server error');
       }
-      setNewStaff({ name: '', role: '', status: 'Available' });
+      setNewStaff({ name: '', role: '', status: 'READY' });
       alert(`Staff member ${newStaff.name} registered successfully!`);
       fetchData();
     } catch (err) { 

@@ -7,10 +7,13 @@ const vehicleSchema = new mongoose.Schema({
   parking_station: { type: String, default: 'Main Base' },
   current_lat: { type: Number, required: true },
   current_long: { type: Number, required: true },
+  base_lat: { type: Number, default: null },
+  base_long: { type: Number, default: null },
   target_lat: { type: Number, default: null },
   target_long: { type: Number, default: null },
   target_route: { type: Array, default: [] },
-  status: { type: String, enum: ['READY', 'FAULTY', 'PENDING', 'DISPATCHED', 'ON_SCENE'], default: 'READY' } 
+  status: { type: String, enum: ['READY', 'FAULTY', 'PENDING', 'DISPATCHED', 'ON_SCENE', 'RETURNING'], default: 'READY' },
+  wait_ticks: { type: Number, default: 0 }
 });
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

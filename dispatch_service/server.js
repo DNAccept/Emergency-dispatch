@@ -46,40 +46,88 @@ app.get('/', (req, res) => res.redirect('/api-docs'));
 app.get('/health', (req, res) => res.json({ status: 'OK', service: 'dispatch-service' }));
 app.use('/vehicles', vehicleRoutes);
 
-// --- Real-time Movement Simulation Loop ---
+const axios = require('axios');
 const Vehicle = require('./models/Vehicle');
 const { publishEvent } = require('./rabbitmq');
 setInterval(async () => {
   if (mongoose.connection.readyState !== 1) return;
   try {
-    const activeVehicles = await Vehicle.find({ target_route: { $exists: true, $not: { $size: 0 } } });
+    // 1. Move active vehicles (DISPATCHED or RETURNING)
+    const activeVehicles = await Vehicle.find({ 
+      status: { $in: ['DISPATCHED', 'RETURNING'] }, 
+      target_route: { $exists: true, $not: { $size: 0 } } 
+    });
     for (const v of activeVehicles) {
       if (v.target_route && v.target_route.length > 0) {
-        // Jump points if the OSRM route has many points to speed up simulation
         let skip = 1;
         if (v.target_route.length > 100) skip = 5;
         else if (v.target_route.length > 30) skip = 2;
         
         let nextPoint;
         for (let i = 0; i < skip; i++) {
-          if (v.target_route.length > 0) {
-            nextPoint = v.target_route.shift();
-          }
+          if (v.target_route.length > 0) nextPoint = v.target_route.shift();
         }
         
-        v.current_lat = nextPoint[0];
-        v.current_long = nextPoint[1];
+        v.current_lat = nextPoint[0]; v.current_long = nextPoint[1];
+
+        // Arrival Check
         if (v.target_route.length === 0) {
-          v.target_lat = null; v.target_long = null; v.status = 'ON_SCENE';
+          if (v.status === 'DISPATCHED') {
+            v.status = 'ON_SCENE';
+            v.wait_ticks = 5; // Stay for ~15 seconds (5 loop ticks)
+            console.log(`[Simulation] ${v.unit_name} arrived ON_SCENE`);
+          } else if (v.status === 'RETURNING') {
+            v.status = 'READY';
+            console.log(`[Simulation] ${v.unit_name} returned and is now READY`);
+          }
+          v.target_lat = null; v.target_long = null;
           publishEvent('dispatch.status.changed', {
             event: 'dispatch.status.changed',
             vehicle_id: v.vehicle_id,
-            new_status: 'ON_SCENE',
+            new_status: v.status,
             timestamp: new Date().toISOString()
           });
         }
         v.markModified('target_route');
         await v.save();
+      }
+    }
+
+    // 2. Handle waiting vehicles at scene and trigger return trip
+    const waitingVehicles = await Vehicle.find({ status: 'ON_SCENE' });
+    for (const v of waitingVehicles) {
+      if (v.wait_ticks > 0) {
+        v.wait_ticks -= 1;
+        await v.save();
+      } else {
+        // Trigger Return Trip to base_lat/base_long
+        if (v.base_lat && v.base_long) {
+          console.log(`[Simulation] ${v.unit_name} starting return trip to base`);
+          let routePoints = [];
+          try {
+            const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${v.current_long},${v.current_lat};${v.base_long},${v.base_lat}?overview=full&geometries=geojson`;
+            const osrmRes = await axios.get(osrmUrl, { timeout: 5000 });
+            if (osrmRes.data.routes && osrmRes.data.routes[0]) {
+              routePoints = osrmRes.data.routes[0].geometry.coordinates.map(pt => [pt[1], pt[0]]);
+            }
+          } catch (e) {
+            // Simple interpolation fallback
+            for (let i=0; i<=10; i++) {
+              const f = i/10;
+              routePoints.push([v.current_lat + (v.base_lat-v.current_lat)*f, v.current_long + (v.base_long-v.current_long)*f]);
+            }
+          }
+          v.target_lat = v.base_lat; v.target_long = v.base_long;
+          v.target_route = routePoints;
+          v.status = 'RETURNING';
+          await v.save();
+          publishEvent('dispatch.status.changed', {
+            event: 'dispatch.status.changed', vehicle_id: v.vehicle_id, new_status: 'RETURNING', timestamp: new Date().toISOString()
+          });
+        } else {
+          // If no base, just reset to READY
+          v.status = 'READY'; await v.save();
+        }
       }
     }
   } catch (err) { console.error('Simulation loop error:', err.message); }

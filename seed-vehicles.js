@@ -29,7 +29,7 @@ async function seed() {
   let created = 0, skipped = 0;
   for (const v of vehicles) {
     try {
-      await axios.post(`${BASE}/vehicles/register`, { ...v, is_available: true, status: 'AVAILABLE' });
+      await axios.post(`${BASE}/vehicles/register`, { ...v, status: 'READY' });
       console.log(`  ✓ Created: ${v.unit_name} (${v.vehicle_id})`);
       created++;
     } catch (err) {

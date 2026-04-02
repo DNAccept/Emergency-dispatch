@@ -221,13 +221,14 @@ const App = ({ token }) => {
                 <Popup>Unit: {v.unit_name} ({v.status})</Popup>
               </Marker>
               
-              {v.status === 'DISPATCHED' && v.target_route && v.target_route.length > 0 && (
+              {(v.status === 'DISPATCHED' || v.status === 'RETURNING') && v.target_route && v.target_route.length > 0 && (
                 <Polyline 
+                  key={`route-${v.vehicle_id}-${v.status}`}
                   positions={[[v.current_lat, v.current_long], ...v.target_route]} 
                   color={SERVICE_CONFIG[v.service_type]?.color || '#fff'} 
-                  dashArray="5, 8"
-                  weight={3}
-                  opacity={0.7}
+                  dashArray="10, 10"
+                  weight={4}
+                  opacity={0.8}
                 />
               )}
             </React.Fragment>
