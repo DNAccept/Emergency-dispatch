@@ -37,7 +37,7 @@ exports.createIncident = async (req, res) => {
     const assignedUnits = [];
     
     try {
-      const response = await axios.get(`${dispatchUrl}/vehicles/available`, { timeout: 5000 });
+      const response = await axios.get(`${dispatchUrl}/vehicles/available`, { timeout: 120000 });
       const availableVehicles = response.data;
 
       if (Array.isArray(availableVehicles)) {
@@ -66,7 +66,7 @@ exports.createIncident = async (req, res) => {
               await axios.post(`${dispatchUrl}/vehicles/${closest.vehicle_id}/dispatch`, {
                 target_lat: latitude,
                 target_long: longitude
-              }, { timeout: 5000 });
+              }, { timeout: 120000 });
             } catch (dispatchErr) {
               console.error(`Failed to dispatch unit ${closest.vehicle_id}:`, dispatchErr.message);
             }

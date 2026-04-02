@@ -153,10 +153,10 @@ const App = ({ token }) => {
     const results = {};
     for (const [key, url] of Object.entries(urls)) {
       try {
-        const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        const r = await fetch(url, { signal: AbortSignal.timeout(120000) });
         // If /health is 404, we try /analytics/health for the Analytics service as a safeguard
         if (key === 'analytics' && r.status === 404) {
-          const r2 = await fetch('https://analytics-service-hreo.onrender.com/analytics/health', { signal: AbortSignal.timeout(3000) });
+          const r2 = await fetch('https://analytics-service-hreo.onrender.com/analytics/health', { signal: AbortSignal.timeout(120000) });
           results[key] = r2.ok ? 'ONLINE' : 'ERROR';
         } else {
           results[key] = r.ok ? 'ONLINE' : 'ERROR';
