@@ -59,3 +59,17 @@ exports.removePersonnel = async (req, res) => {
     res.json({ message: 'Personnel removed' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
+
+exports.updatePersonnel = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, role } = req.body;
+    const updatedStaff = await Personnel.findByIdAndUpdate(
+      id,
+      { $set: { name, role } },
+      { new: true }
+    );
+    if (!updatedStaff) return res.status(404).json({ message: 'Personnel not found' });
+    res.json(updatedStaff);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};

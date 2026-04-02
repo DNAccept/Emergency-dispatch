@@ -104,7 +104,10 @@ const App = ({ token }) => {
   const [stations, setStations] = useState([]);
   const [personnel, setPersonnel] = useState([]);
   const [stationStats, setStationStats] = useState({ beds: 0, total_beds: 0, ambulances: 0, fire_trucks: 0, readiness: 'High' });
-  const [newStaff, setNewStaff] = useState({ name: '', role: '', status: 'Available' });
+  const [newStaff, setNewStaff] = useState({ name: '', role: '' });
+  const [editingStaffId, setEditingStaffId] = useState(null);
+  const [editingStaffForm, setEditingStaffForm] = useState({ name: '', role: '' });
+  const [users, setUsers] = useState([]);
   const [editingUser, setEditingUser] = useState(null);
   const [editStationValue, setEditStationValue] = useState('');
 
@@ -313,6 +316,25 @@ const App = ({ token }) => {
     }
   };
 
+  const handleEditStaffSave = async (id) => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch(`${ANALYTICS_URL}/analytics/personnel/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+        body: JSON.stringify(editingStaffForm)
+      });
+      if (!res.ok) throw new Error('Edit failed');
+      setEditingStaffId(null);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update staff member.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleUpdateUserStation = async (userId) => {
     setIsSyncing(true);
     try {
@@ -504,11 +526,22 @@ const App = ({ token }) => {
               <div style={{ maxHeight: 250, overflowY: 'auto', marginBottom: '1rem' }}>
                 {personnel.map(p => (
                   <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                    <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{p.name}</div>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{p.role}</div>
-                    </div>
-                    <button onClick={() => handleRemoveStaff(p._id)} style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.65rem' }}>✕</button>
+                    {editingStaffId === p._id ? (
+                      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                        <input value={editingStaffForm.name} onChange={e => setEditingStaffForm({...editingStaffForm, name: e.target.value})} style={{ flex: 1, fontSize: '0.75rem', padding: '0.2rem' }} />
+                        <input value={editingStaffForm.role} onChange={e => setEditingStaffForm({...editingStaffForm, role: e.target.value})} style={{ flex: 1, fontSize: '0.75rem', padding: '0.2rem' }} />
+                        <button onClick={() => handleEditStaffSave(p._id)} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 0.4rem', cursor: 'pointer' }}>✓</button>
+                        <button onClick={() => setEditingStaffId(null)} style={{ background: 'var(--text-muted)', color: 'white', border: 'none', padding: '0 0.4rem', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => { setEditingStaffId(p._id); setEditingStaffForm({ name: p.name, role: p.role }); }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{p.name}</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{p.role}</div>
+                        </div>
+                        <button onClick={() => handleRemoveStaff(p._id)} style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.65rem' }}>✕</button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

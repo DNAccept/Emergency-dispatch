@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getResponseTimes, getIncidentsByRegion, getResourceUtilization } = require('../controllers/analyticsController');
 const { getHospitals, updateHospitalCapacity } = require('../controllers/hospitalController');
-const { getStations, updateStation, getPersonnel, addPersonnel, removePersonnel } = require('../controllers/resourceController');
+const { getStations, updateStation, getPersonnel, addPersonnel, removePersonnel, updatePersonnel } = require('../controllers/resourceController');
 
 /**
  * @swagger
@@ -119,5 +119,30 @@ router.post('/personnel/register', addPersonnel);
  *       200: { description: Personnel deleted }
  */
 router.delete('/personnel/:id', removePersonnel);
+
+/**
+ * @swagger
+ * /analytics/personnel/{id}:
+ *   put:
+ *     summary: Update personnel record
+ *     tags: [Resources]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               role: { type: string }
+ *     responses:
+ *       200: { description: Personnel updated }
+ */
+router.put('/personnel/:id', updatePersonnel);
 
 module.exports = router;
