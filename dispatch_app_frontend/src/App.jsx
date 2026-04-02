@@ -156,11 +156,16 @@ const App = ({ token }) => {
   const fetchData = async () => {
     if (!jwt) return;
     try {
-      const vRes = await fetch('https://dispatch-service.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const AUTH_URL = import.meta.env.VITE_AUTH_SERVICE_URL || 'https://auth-service-spk6.onrender.com';
+      const DISPATCH_URL = import.meta.env.VITE_DISPATCH_SERVICE_URL || 'https://dispatch-service.onrender.com';
+      const INCIDENT_URL = import.meta.env.VITE_INCIDENT_SERVICE_URL || 'https://incident-service-9yox.onrender.com';
+      const ANALYTICS_URL = import.meta.env.VITE_ANALYTICS_SERVICE_URL || 'https://analytics-service-hreo.onrender.com';
+
+      const vRes = await fetch(`${DISPATCH_URL}/vehicles/`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       const vData = await vRes.json();
       setVehicles(Array.isArray(vData) ? vData : []);
 
-      const iRes = await fetch('https://incident-service-9yox.onrender.com/incidents/open', { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const iRes = await fetch(`${INCIDENT_URL}/incidents/open`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       const iData = await iRes.json();
       setIncidents(Array.isArray(iData) ? iData : []);
       setLoading(false);

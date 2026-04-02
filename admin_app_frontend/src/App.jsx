@@ -87,7 +87,7 @@ function LocationPicker({ position, setPosition }) {
 const App = ({ token }) => {
   const AUTH_URL = import.meta.env.VITE_AUTH_SERVICE_URL || 'https://auth-service-spk6.onrender.com';
   const DISPATCH_URL = import.meta.env.VITE_DISPATCH_SERVICE_URL || 'https://dispatch-service.onrender.com';
-  const ANALYTICS_URL = import.meta.env.VITE_ANALYTICS_SERVICE_URL || 'https://analytics-service-9yox.onrender.com';
+  const ANALYTICS_URL = import.meta.env.VITE_ANALYTICS_SERVICE_URL || 'https://analytics-service-hreo.onrender.com';
   const INCIDENT_URL = import.meta.env.VITE_INCIDENT_SERVICE_URL || 'https://incident-service-9yox.onrender.com';
 
   const [profile, setProfile] = useState(null);
@@ -153,7 +153,7 @@ const App = ({ token }) => {
         const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
         // If /health is 404, we try /analytics/health for the Analytics service as a safeguard
         if (key === 'analytics' && r.status === 404) {
-          const r2 = await fetch('https://analytics-service-9yox.onrender.com/analytics/health', { signal: AbortSignal.timeout(3000) });
+          const r2 = await fetch('https://analytics-service-hreo.onrender.com/analytics/health', { signal: AbortSignal.timeout(3000) });
           results[key] = r2.ok ? 'ONLINE' : 'ERROR';
         } else {
           results[key] = r.ok ? 'ONLINE' : 'ERROR';
