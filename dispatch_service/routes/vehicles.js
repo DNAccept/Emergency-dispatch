@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { registerVehicle, updateLocationAndStatus, getAvailableVehicles, getVehicleStatus, dispatchVehicle, getAllVehicles, deleteVehicle, updateVehicleInfo } = require('../controllers/vehicleController');
+const { authenticate } = require('../middleware/authMiddleware');
 
 /**
  * @swagger
@@ -24,11 +25,11 @@ const { registerVehicle, updateLocationAndStatus, getAvailableVehicles, getVehic
  *     responses:
  *       201: { description: Vehicle registered successfully }
  */
-router.post('/register', registerVehicle);
-router.post('/:id/location', updateLocationAndStatus);
-router.patch('/:id/status', updateLocationAndStatus);
-router.put('/:id', updateVehicleInfo);
-router.post('/:id/dispatch', dispatchVehicle);
+router.post('/register', authenticate, registerVehicle);
+router.post('/:id/location', authenticate, updateLocationAndStatus);
+router.patch('/:id/status', authenticate, updateLocationAndStatus);
+router.put('/:id', authenticate, updateVehicleInfo);
+router.post('/:id/dispatch', authenticate, dispatchVehicle);
 
 /**
  * @swagger
@@ -39,7 +40,7 @@ router.post('/:id/dispatch', dispatchVehicle);
  *     responses:
  *       200: { description: List of available vehicles }
  */
-router.get('/available', getAvailableVehicles);
+router.get('/available', authenticate, getAvailableVehicles);
 
 /**
  * @swagger
@@ -55,8 +56,8 @@ router.get('/available', getAvailableVehicles);
  *     responses:
  *       200: { description: Vehicle information }
  */
-router.get('/:id', getVehicleStatus);
-router.get('/', getAllVehicles);
+router.get('/:id', authenticate, getVehicleStatus);
+router.get('/', authenticate, getAllVehicles);
 
 /**
  * @swagger
@@ -72,6 +73,6 @@ router.get('/', getAllVehicles);
  *     responses:
  *       200: { description: Vehicle deleted }
  */
-router.delete('/:id', deleteVehicle);
+router.delete('/:id', authenticate, deleteVehicle);
 
 module.exports = router;

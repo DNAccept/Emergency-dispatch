@@ -165,7 +165,8 @@ const App = ({ token, role: roleProp }) => {
   };
 
   const fetchVehicles = () => {
-    fetch('https://dispatch-service.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } })
+    const DISPATCH_URL = import.meta.env.VITE_DISPATCH_SERVICE_URL || 'https://dispatch-service-tjgl.onrender.com';
+    fetch(`${DISPATCH_URL}/vehicles/`, { headers: { 'Authorization': `Bearer ${jwt}` } })
       .then(r => r.json())
       .then(d => { if (Array.isArray(d)) setVehicles(d); })
       .catch(console.error);
