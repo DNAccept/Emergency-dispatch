@@ -214,11 +214,23 @@ const App = ({ token }) => {
             </Marker>
           ))}
 
-          {/* Vehicles */}
+          {/* Vehicles and Routes */}
           {filteredVehicles.map(v => (
-            <Marker key={v.vehicle_id} position={[v.current_lat, v.current_long]} icon={createVehicleIcon(v.service_type, v.status, selectedVehicleId === v.vehicle_id)} eventHandlers={{ click: () => setSelectedVehicleId(v.vehicle_id) }}>
-              <Popup>Unit: {v.unit_name} ({v.status})</Popup>
-            </Marker>
+            <React.Fragment key={v.vehicle_id}>
+              <Marker position={[v.current_lat, v.current_long]} icon={createVehicleIcon(v.service_type, v.status, selectedVehicleId === v.vehicle_id)} eventHandlers={{ click: () => setSelectedVehicleId(v.vehicle_id) }}>
+                <Popup>Unit: {v.unit_name} ({v.status})</Popup>
+              </Marker>
+              
+              {v.status === 'DISPATCHED' && v.target_route && v.target_route.length > 0 && (
+                <Polyline 
+                  positions={[[v.current_lat, v.current_long], ...v.target_route]} 
+                  color={SERVICE_CONFIG[v.service_type]?.color || '#fff'} 
+                  dashArray="5, 8"
+                  weight={3}
+                  opacity={0.7}
+                />
+              )}
+            </React.Fragment>
           ))}
         </MapContainer>
       </div>

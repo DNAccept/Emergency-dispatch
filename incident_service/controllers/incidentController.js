@@ -33,7 +33,7 @@ exports.createIncident = async (req, res) => {
     const incident = newIncident.rows[0];
 
     // 3. Fetch all available vehicles to find nearest for EACH nature
-    const dispatchUrl = process.env.DISPATCH_SERVICE_URL || 'https://dispatch-service-v690.onrender.com';
+    const dispatchUrl = process.env.DISPATCH_SERVICE_URL || 'https://dispatch-service-tjgl.onrender.com';
     const assignedUnits = [];
     
     try {
