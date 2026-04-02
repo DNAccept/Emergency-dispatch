@@ -48,17 +48,35 @@ app.use('/vehicles', vehicleRoutes);
 
 // --- Real-time Movement Simulation Loop ---
 const Vehicle = require('./models/Vehicle');
+const { publishEvent } = require('./rabbitmq');
 setInterval(async () => {
   if (mongoose.connection.readyState !== 1) return;
   try {
     const activeVehicles = await Vehicle.find({ target_route: { $exists: true, $not: { $size: 0 } } });
     for (const v of activeVehicles) {
       if (v.target_route && v.target_route.length > 0) {
-        const nextPoint = v.target_route.shift();
+        // Jump points if the OSRM route has many points to speed up simulation
+        let skip = 1;
+        if (v.target_route.length > 100) skip = 5;
+        else if (v.target_route.length > 30) skip = 2;
+        
+        let nextPoint;
+        for (let i = 0; i < skip; i++) {
+          if (v.target_route.length > 0) {
+            nextPoint = v.target_route.shift();
+          }
+        }
+        
         v.current_lat = nextPoint[0];
         v.current_long = nextPoint[1];
         if (v.target_route.length === 0) {
           v.target_lat = null; v.target_long = null; v.status = 'ON_SCENE';
+          publishEvent('dispatch.status.changed', {
+            event: 'dispatch.status.changed',
+            vehicle_id: v.vehicle_id,
+            new_status: 'ON_SCENE',
+            timestamp: new Date().toISOString()
+          });
         }
         v.markModified('target_route');
         await v.save();

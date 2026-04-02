@@ -109,7 +109,6 @@ const App = ({ token }) => {
   const [editingStaffForm, setEditingStaffForm] = useState({ name: '', role: '' });
   const [editingVehicleId, setEditingVehicleId] = useState(null);
   const [editingVehicleForm, setEditingVehicleForm] = useState({ unit_name: '' });
-  const [users, setUsers] = useState([]);
   const [editingUser, setEditingUser] = useState(null);
   const [editStationValue, setEditStationValue] = useState('');
 
