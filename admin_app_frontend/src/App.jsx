@@ -117,6 +117,24 @@ const App = ({ token }) => {
 
   const role = profile?.role || profile?.user?.role;
   const managedStation = profile?.managed_station || profile?.user?.managed_station;
+
+  // Sync stationStats when the stations API successfully returns data
+  useEffect(() => {
+    if (managedStation && stations && stations.length > 0) {
+      const ms = stations.find(s => s.name === managedStation);
+      if (ms) {
+        setStationStats(prev => ({
+          ...prev,
+          beds: ms.beds ?? prev.beds,
+          total_beds: ms.total_beds ?? prev.total_beds,
+          ambulances: ms.ambulances ?? prev.ambulances,
+          fire_trucks: ms.fire_trucks ?? prev.fire_trucks,
+          readiness: ms.readiness_level ?? prev.readiness
+        }));
+      }
+    }
+  }, [stations, managedStation]);
+
   const isHospitalAdmin = role === 'HOSPITAL_ADMIN';
   const isPoliceAdmin = role === 'POLICE_ADMIN';
   const isFireAdmin = role === 'FIRE_ADMIN';
@@ -159,7 +177,7 @@ const App = ({ token }) => {
 
     // Fetch Stations
     try {
-      const sRes = await fetch(`${ANALYTICS_URL}/stations`, { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const sRes = await fetch(`${ANALYTICS_URL}/analytics/stations`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       if (sRes.ok) {
         const sData = await sRes.json();
         if (Array.isArray(sData)) setStations(sData);
@@ -169,7 +187,7 @@ const App = ({ token }) => {
     // Fetch Personnel
     try {
       const pQuery = isSystemAdmin ? '' : `?station_name=${encodeURIComponent(managedStation)}&service_type=${isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire'}`;
-      const pRes = await fetch(`${ANALYTICS_URL}/personnel${pQuery}`, { headers: { 'Authorization': `Bearer ${jwt}` } });
+      const pRes = await fetch(`${ANALYTICS_URL}/analytics/personnel${pQuery}`, { headers: { 'Authorization': `Bearer ${jwt}` } });
       if (pRes.ok) {
         const pData = await pRes.json();
         if (Array.isArray(pData)) setPersonnel(pData);
@@ -219,7 +237,7 @@ const App = ({ token }) => {
     setStationStats(newStats); 
     setIsSyncing(true);
     try {
-      const res = await fetch(`${ANALYTICS_URL}/stations/update`, {
+      const res = await fetch(`${ANALYTICS_URL}/analytics/stations/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({
@@ -230,6 +248,7 @@ const App = ({ token }) => {
         })
       });
       if (!res.ok) throw new Error('Update failed');
+      setTimeout(fetchData, 1000);
     } catch (err) { 
       console.error(err); 
       setStationStats(oldStats);
@@ -248,7 +267,7 @@ const App = ({ token }) => {
     setPersonnel([...personnel, optimisticStaff]);
     setIsSyncing(true);
     try {
-      const res = await fetch(`${ANALYTICS_URL}/personnel/register`, {
+      const res = await fetch(`${ANALYTICS_URL}/analytics/personnel/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({
@@ -279,7 +298,7 @@ const App = ({ token }) => {
     setPersonnel(personnel.filter(p => p._id !== id));
     setIsSyncing(true);
     try {
-      const res = await fetch(`${ANALYTICS_URL}/personnel/${id}`, {
+      const res = await fetch(`${ANALYTICS_URL}/analytics/personnel/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${jwt}` }
       });
