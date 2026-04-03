@@ -1,8 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getResponseTimes, getIncidentsByRegion, getResourceUtilization } = require('../controllers/analyticsController');
+const { getResponseTimes, getIncidentsByRegion, getResourceUtilization, getDispatchActivity, getIncidentTypeBreakdown } = require('../controllers/analyticsController');
 const { getHospitals, updateHospitalCapacity } = require('../controllers/hospitalController');
 const { getStations, updateStation, getPersonnel, addPersonnel, removePersonnel, updatePersonnel } = require('../controllers/resourceController');
+
+router.get('/response-times',          getResponseTimes);
+router.get('/incidents-by-region',      getIncidentsByRegion);
+router.get('/resource-utilization',     getResourceUtilization);
+router.get('/dispatch-activity',        getDispatchActivity);
+router.get('/incident-type-breakdown',  getIncidentTypeBreakdown);
 
 /**
  * @swagger

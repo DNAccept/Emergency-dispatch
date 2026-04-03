@@ -15,6 +15,9 @@ const vehicleSchema = new mongoose.Schema({
   // Intermediate hospital drop-off point for ambulances (Hospital vehicles)
   hospital_drop_lat: { type: Number, default: null },
   hospital_drop_long: { type: Number, default: null },
+  // Analytics tracking fields
+  dispatched_at: { type: Date, default: null },   // stamped when DISPATCHED begins
+  incident_type: { type: String, default: null },  // Medical / Fire / Crime / Traffic
   status: {
     type: String,
     enum: ['READY', 'FAULTY', 'PENDING', 'DISPATCHED', 'ON_SCENE', 'HOSPITAL_DROP', 'RETURNING'],
@@ -24,3 +27,4 @@ const vehicleSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);
+

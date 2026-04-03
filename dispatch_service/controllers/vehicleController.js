@@ -106,7 +106,7 @@ exports.getVehicleStatus = async (req, res) => {
 exports.dispatchVehicle = async (req, res) => {
   try {
     const { id } = req.params;
-    const { target_lat, target_long } = req.body;
+    const { target_lat, target_long, incident_type } = req.body;
     const vehicle = await Vehicle.findOne({ vehicle_id: id });
     if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
 
@@ -134,10 +134,12 @@ exports.dispatchVehicle = async (req, res) => {
       }
     }
 
-    vehicle.target_lat = target_lat;
-    vehicle.target_long = target_long;
-    vehicle.target_route = routePoints;
-    vehicle.status = 'DISPATCHED';
+    vehicle.target_lat    = target_lat;
+    vehicle.target_long   = target_long;
+    vehicle.target_route  = routePoints;
+    vehicle.status        = 'DISPATCHED';
+    vehicle.dispatched_at = new Date();                   // ← stamp for response-time calc
+    vehicle.incident_type = incident_type || null;        // ← carry incident context
 
     await vehicle.save();
     
@@ -145,6 +147,8 @@ exports.dispatchVehicle = async (req, res) => {
       event: 'dispatch.status.changed',
       vehicle_id: id,
       new_status: 'DISPATCHED',
+      service_type: vehicle.service_type,
+      incident_type: vehicle.incident_type,
       target: { lat: target_lat, lng: target_long },
       route: routePoints,
       timestamp: new Date().toISOString()

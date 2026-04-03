@@ -65,7 +65,8 @@ exports.createIncident = async (req, res) => {
             try {
               await axios.post(`${dispatchUrl}/vehicles/${closest.vehicle_id}/dispatch`, {
                 target_lat: latitude,
-                target_long: longitude
+                target_long: longitude,
+                incident_type: nature    // ← pass incident type for analytics recording
               }, { timeout: 120000 });
             } catch (dispatchErr) {
               console.error(`Failed to dispatch unit ${closest.vehicle_id}:`, dispatchErr.message);

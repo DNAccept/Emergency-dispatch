@@ -152,12 +152,26 @@ setInterval(async () => {
       if (v.target_route.length === 0) {
         v.target_lat = null;
         v.target_long = null;
+        const now = new Date();
 
         if (v.status === 'DISPATCHED') {
-          // Arrived at incident scene
+          // Arrived at incident scene — compute response time
           v.status = 'ON_SCENE';
           v.wait_ticks = 5; // ~15 seconds on scene
-          console.log(`[Sim] ${v.unit_name} arrived ON_SCENE`);
+          const responseSecs = v.dispatched_at
+            ? Math.round((now - new Date(v.dispatched_at)) / 1000)
+            : null;
+          console.log(`[Sim] ${v.unit_name} arrived ON_SCENE (response: ${responseSecs}s)`);
+          publishEvent('dispatch.status.changed', {
+            event: 'dispatch.status.changed',
+            vehicle_id: v.vehicle_id,
+            new_status: 'ON_SCENE',
+            service_type: v.service_type,
+            incident_type: v.incident_type || null,
+            response_time_secs: responseSecs,
+            unit_name: v.unit_name,
+            timestamp: now.toISOString()
+          });
 
         } else if (v.status === 'HOSPITAL_DROP') {
           // Arrived at hospital — brief patient handoff wait, then return to base
@@ -166,19 +180,30 @@ setInterval(async () => {
           v.hospital_drop_lat  = null; // Clear the drop-off target
           v.hospital_drop_long = null;
           console.log(`[Sim] ${v.unit_name} arrived at HOSPITAL for patient drop-off`);
+          publishEvent('dispatch.status.changed', {
+            event: 'dispatch.status.changed',
+            vehicle_id: v.vehicle_id,
+            new_status: 'HOSPITAL_DROP_COMPLETE',
+            service_type: v.service_type,
+            unit_name: v.unit_name,
+            timestamp: now.toISOString()
+          });
 
         } else if (v.status === 'RETURNING') {
-          // Arrived back at base
-          v.status = 'READY';
+          // Arrived back at base — clear analytics fields for next dispatch
+          v.status        = 'READY';
+          v.dispatched_at = null;
+          v.incident_type = null;
           console.log(`[Sim] ${v.unit_name} returned to base — READY`);
+          publishEvent('dispatch.status.changed', {
+            event: 'dispatch.status.changed',
+            vehicle_id: v.vehicle_id,
+            new_status: 'READY',
+            service_type: v.service_type,
+            unit_name: v.unit_name,
+            timestamp: now.toISOString()
+          });
         }
-
-        publishEvent('dispatch.status.changed', {
-          event: 'dispatch.status.changed',
-          vehicle_id: v.vehicle_id,
-          new_status: v.status,
-          timestamp: new Date().toISOString()
-        });
       }
 
       v.markModified('target_route');
