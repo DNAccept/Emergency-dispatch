@@ -181,6 +181,30 @@ const App = ({ token }) => {
     return () => clearInterval(iv);
   }, [jwt]);
 
+  const activeStatuses = ['DISPATCHED','ON_SCENE','HOSPITAL_DROP','RETURNING'];
+
+  const handleDeleteVehicle = async (v) => {
+    if (!v) return;
+    const confirmMsg = `Are you sure you want to decommission unit ${v.unit_name} (${v.vehicle_id})? This action will remove it from the fleet permanently.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`${DISPATCH_URL}/vehicles/${v.vehicle_id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${jwt}` }
+      });
+      if (res.ok) {
+        setSelected(null);
+        fetchData();
+      } else {
+        const d = await res.json();
+        alert(d.message || 'Decommissioning failed');
+      }
+    } catch (err) {
+      alert('Network error while decommissioning unit.');
+    }
+  };
+
   const handleSelectVehicle = (v) => {
     setSelected(v.vehicle_id);
     setMapFocus([v.current_lat, v.current_long]);
@@ -191,7 +215,7 @@ const App = ({ token }) => {
   // ── KPIs ─────────────────────────────────────────────────────────────────
   const total     = vehicles.length;
   const ready     = vehicles.filter(v => v.status === 'READY').length;
-  const active    = vehicles.filter(v => ['DISPATCHED','ON_SCENE','HOSPITAL_DROP','RETURNING'].includes(v.status)).length;
+  const active    = vehicles.filter(v => activeStatuses.includes(v.status)).length;
   const faulty    = vehicles.filter(v => v.status === 'FAULTY').length;
   const openInc   = incidents.length;
 
@@ -318,6 +342,14 @@ const App = ({ token }) => {
                           <div style={{ fontWeight: 700 }}>{v.unit_name}</div>
                           <div style={{ fontSize: '0.78rem', color: '#555' }}>{v.service_type} · {v.status}</div>
                           <div style={{ fontSize: '0.7rem', color: '#888', marginTop: 4 }}>ID: {v.vehicle_id}</div>
+                          {!activeStatuses.includes(v.status) && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleDeleteVehicle(v); }}
+                              style={{ marginTop: 8, width: '100%', background: 'rgba(255,51,51,0.1)', color: '#ff3333', border: '1px solid rgba(255,51,51,0.2)', borderRadius: 2, padding: '0.25rem', fontSize: '0.65rem', cursor: 'pointer' }}
+                            >
+                              Decommission Unit
+                            </button>
+                          )}
                         </div>
                       </Popup>
                     </Marker>
@@ -371,6 +403,23 @@ const App = ({ token }) => {
                   <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>{v}</span>
                 </div>
               ))}
+              
+              <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                {activeStatuses.includes(selectedVehicle.status) ? (
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', textAlign: 'center', background: 'rgba(0,0,0,0.1)', padding: '0.5rem', borderRadius: 2 }}>
+                    Active units cannot be decommissioned
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => handleDeleteVehicle(selectedVehicle)}
+                    style={{ width: '100%', background: 'rgba(255,51,51,0.15)', color: '#ff4444', border: '1px solid rgba(255,51,51,0.3)', borderRadius: 3, padding: '0.5rem', fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                    onMouseOver={e => e.target.style.background = 'rgba(255,51,51,0.25)'}
+                    onMouseOut={e => e.target.style.background = 'rgba(255,51,51,0.15)'}
+                  >
+                    DECOMMISSION UNIT
+                  </button>
+                )}
+              </div>
               <style>{`@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }`}</style>
             </div>
           ) : (

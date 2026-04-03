@@ -162,8 +162,18 @@ exports.dispatchVehicle = async (req, res) => {
 exports.deleteVehicle = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await Vehicle.deleteOne({ vehicle_id: id });
-    if (result.deletedCount === 0) return res.status(404).json({ message: 'Vehicle not found' });
+    const vehicle = await Vehicle.findOne({ vehicle_id: id });
+    if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+
+    // Prevent deletion of active units
+    const activeStatuses = ['DISPATCHED', 'ON_SCENE', 'HOSPITAL_DROP', 'RETURNING'];
+    if (activeStatuses.includes(vehicle.status)) {
+      return res.status(400).json({ 
+        message: `Cannot decommission an active unit. Current status: ${vehicle.status}. Please wait for the mission to complete.`
+      });
+    }
+
+    await Vehicle.deleteOne({ vehicle_id: id });
     res.json({ message: 'Vehicle removed from fleet successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
