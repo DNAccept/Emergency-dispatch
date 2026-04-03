@@ -1,6 +1,10 @@
+const mongoose = require('mongoose');
 const Hospital = require('../models/Hospital');
 
 exports.getHospitals = async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Database not connected. Please try again shortly.' });
+  }
   try {
     let hospitals = await Hospital.find();
     if (hospitals.length === 0) {
@@ -16,6 +20,9 @@ exports.getHospitals = async (req, res) => {
 };
 
 exports.updateHospitalCapacity = async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Database not connected. Please try again shortly.' });
+  }
   try {
     const { name, occupied_beds, total_beds } = req.body;
     let hospital = await Hospital.findOne({ name });
@@ -34,3 +41,4 @@ exports.updateHospitalCapacity = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
