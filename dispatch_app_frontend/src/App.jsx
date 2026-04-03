@@ -74,23 +74,26 @@ const SearchBox = () => {
   );
 };
 
-function createVehicleIcon(type, status, selected) {
+// inactive = READY / FAULTY / PENDING (no active assignment)
+function createVehicleIcon(type, status, selected, inactive) {
   const cfg = SERVICE_CONFIG[type] || SERVICE_CONFIG.Hospital;
   const sm  = STATUS_META[status] || STATUS_META.READY;
-  const sz  = selected ? 36 : 28;
-  const border = selected ? '#ffffff' : cfg.color;
-  const glow   = selected
-    ? `0 0 18px ${cfg.glow}, 0 0 6px #fff`
-    : (status === 'DISPATCHED' || status === 'RETURNING' || status === 'HOSPITAL_DROP')
-      ? `0 0 12px ${cfg.glow}`
-      : `0 0 6px ${cfg.glow}`;
 
-  const pulse = (status === 'ON_SCENE' || status === 'HOSPITAL_DROP')
+  // Inactive units: smaller, no glow, heavily dimmed
+  const sz     = selected ? 36 : inactive ? 22 : 28;
+  const alpha  = inactive ? 0.25 : (status === 'FAULTY' ? 0.4 : 1);
+  const border = selected ? '#ffffff' : inactive ? 'rgba(255,255,255,0.2)' : cfg.color;
+  const glow   = inactive ? 'none'
+    : selected ? `0 0 18px ${cfg.glow}, 0 0 6px #fff`
+    : ['DISPATCHED','RETURNING','HOSPITAL_DROP'].includes(status) ? `0 0 12px ${cfg.glow}`
+    : `0 0 6px ${cfg.glow}`;
+
+  const pulse = !inactive && (status === 'ON_SCENE' || status === 'HOSPITAL_DROP')
     ? `<div style="position:absolute;inset:-4px;border-radius:50%;border:2px solid ${sm.color};opacity:0.5;animation:ping 1.4s ease-out infinite"></div>` : '';
 
-  const badge = status === 'FAULTY'
+  const badge = !inactive && status === 'FAULTY'
     ? `<div style="position:absolute;bottom:-3px;right:-3px;background:#ff3333;border-radius:50%;width:10px;height:10px;border:1px solid #000;font-size:7px;line-height:10px;text-align:center;color:#fff">✕</div>`
-    : status === 'DISPATCHED' || status === 'HOSPITAL_DROP' || status === 'RETURNING'
+    : !inactive && ['DISPATCHED','HOSPITAL_DROP','RETURNING'].includes(status)
       ? `<div style="position:absolute;bottom:-3px;right:-3px;background:${sm.dot};border-radius:50%;width:8px;height:8px;border:1px solid #000;animation:blink 1s infinite"></div>` : '';
 
   return L.divIcon({
@@ -99,9 +102,9 @@ function createVehicleIcon(type, status, selected) {
       @keyframes ping { 0%{transform:scale(1);opacity:0.5} 100%{transform:scale(1.8);opacity:0} }
       @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
     </style>
-    <div style="position:relative;width:${sz}px;height:${sz}px">
+    <div style="position:relative;width:${sz}px;height:${sz}px;opacity:${alpha}">
       ${pulse}
-      <div style="width:${sz}px;height:${sz}px;background:#0d1117;border:2px solid ${border};border-radius:50%;box-shadow:${glow};display:flex;align-items:center;justify-content:center;opacity:${status === 'FAULTY' ? 0.4 : 1}">
+      <div style="width:${sz}px;height:${sz}px;background:#0d1117;border:2px solid ${border};border-radius:50%;box-shadow:${glow};display:flex;align-items:center;justify-content:center;filter:${inactive ? 'grayscale(0.8)' : 'none'}">
         <span style="font-size:${sz * 0.5}px;line-height:1">${cfg.emoji}</span>
       </div>
       ${badge}
@@ -270,33 +273,58 @@ const App = ({ token }) => {
             ) : null)}
 
             {/* Vehicles + routes */}
-            {filtered.map(v => (
-              <React.Fragment key={v.vehicle_id}>
-                {/* Route polyline */}
-                {['DISPATCHED','RETURNING','HOSPITAL_DROP'].includes(v.status) && v.target_route?.length > 0 && (
-                  <Polyline
-                    positions={[[v.current_lat, v.current_long], ...v.target_route]}
-                    color={SERVICE_CONFIG[v.service_type]?.color || '#fff'}
-                    weight={selected === v.vehicle_id ? 4 : 2.5}
-                    opacity={selected === v.vehicle_id ? 0.9 : 0.5}
-                    dashArray={v.status === 'RETURNING' ? '6 8' : v.status === 'HOSPITAL_DROP' ? '2 6' : ''}
-                  />
-                )}
-                <Marker
-                  position={[v.current_lat, v.current_long]}
-                  icon={createVehicleIcon(v.service_type, v.status, selected === v.vehicle_id)}
-                  eventHandlers={{ click: () => handleSelectVehicle(v) }}
-                >
-                  <Popup>
-                    <div style={{ fontFamily: 'sans-serif' }}>
-                      <div style={{ fontWeight: 700 }}>{v.unit_name}</div>
-                      <div style={{ fontSize: '0.78rem', color: '#555' }}>{v.service_type} · {v.status}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#888', marginTop: 4 }}>ID: {v.vehicle_id}</div>
-                    </div>
-                  </Popup>
-                </Marker>
-              </React.Fragment>
-            ))}
+            {(() => {
+              // Build vehicle_id → incident-type colour map for dispatch lines.
+              // assigned_unit_id may be a CSV of vehicle IDs (e.g. "V1, V2").
+              const vehicleIncidentColor = {};
+              incidents.forEach(inc => {
+                if (!inc.assigned_unit_id) return;
+                const unitIds = inc.assigned_unit_id.split(',').map(s => s.trim());
+                // Derive colour from first incident type in the comma-separated type string
+                const firstType = String(inc.type || '').split(',')[0].trim();
+                const colour = INCIDENT_CONFIG[firstType]?.color || '#ffffff';
+                unitIds.forEach(uid => { vehicleIncidentColor[uid] = colour; });
+              });
+
+              const INACTIVE_STATUSES = new Set(['READY', 'FAULTY', 'PENDING']);
+
+              return filtered.map(v => {
+                const inactive   = INACTIVE_STATUSES.has(v.status);
+                const routeColor = vehicleIncidentColor[v.vehicle_id]
+                  || (v.status === 'HOSPITAL_DROP' ? '#9b59b6' // purple for hospital drop
+                  : v.status === 'RETURNING'       ? 'rgba(255,255,255,0.4)' // dim white for return
+                  : SERVICE_CONFIG[v.service_type]?.color || '#fff');
+
+                return (
+                  <React.Fragment key={v.vehicle_id}>
+                    {/* Road-following route line — shrinks as vehicle consumes points */}
+                    {['DISPATCHED','RETURNING','HOSPITAL_DROP'].includes(v.status) && v.target_route?.length > 0 && (
+                      <Polyline
+                        positions={[[v.current_lat, v.current_long], ...v.target_route]}
+                        color={routeColor}
+                        weight={selected === v.vehicle_id ? 4 : 3}
+                        opacity={v.status === 'RETURNING' ? 0.35 : (selected === v.vehicle_id ? 0.95 : 0.75)}
+                        dashArray={v.status === 'RETURNING' ? '6 9' : v.status === 'HOSPITAL_DROP' ? '3 7' : ''}
+                      />
+                    )}
+                    <Marker
+                      position={[v.current_lat, v.current_long]}
+                      icon={createVehicleIcon(v.service_type, v.status, selected === v.vehicle_id, inactive)}
+                      eventHandlers={{ click: () => handleSelectVehicle(v) }}
+                      zIndexOffset={inactive ? -100 : 0}
+                    >
+                      <Popup>
+                        <div style={{ fontFamily: 'sans-serif' }}>
+                          <div style={{ fontWeight: 700 }}>{v.unit_name}</div>
+                          <div style={{ fontSize: '0.78rem', color: '#555' }}>{v.service_type} · {v.status}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#888', marginTop: 4 }}>ID: {v.vehicle_id}</div>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  </React.Fragment>
+                );
+              });
+            })()}
           </MapContainer>
 
           {/* Map legend overlay */}
