@@ -38,7 +38,7 @@ const App = ({ token }) => {
     fetch('https://analytics-service-hreo.onrender.com/analytics/response-times', { headers: { 'Authorization': `Bearer ${jwt}` } })
       .then(r => r.json()).then(d => { setMetrics(d); setLoading(false); }).catch(() => setLoading(false));
     
-    fetch('https://dispatch-service-v690.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } })
+    fetch('https://dispatch-service-tjgl.onrender.com/vehicles/', { headers: { 'Authorization': `Bearer ${jwt}` } })
       .then(r => r.json()).then(d => { if (Array.isArray(d)) setVehicles(d); }).catch(console.error);
 
     fetch('https://analytics-service-hreo.onrender.com/analytics/hospitals', { headers: { 'Authorization': `Bearer ${jwt}` } })

@@ -12,7 +12,14 @@ const vehicleSchema = new mongoose.Schema({
   target_lat: { type: Number, default: null },
   target_long: { type: Number, default: null },
   target_route: { type: Array, default: [] },
-  status: { type: String, enum: ['READY', 'FAULTY', 'PENDING', 'DISPATCHED', 'ON_SCENE', 'RETURNING'], default: 'READY' },
+  // Intermediate hospital drop-off point for ambulances (Hospital vehicles)
+  hospital_drop_lat: { type: Number, default: null },
+  hospital_drop_long: { type: Number, default: null },
+  status: {
+    type: String,
+    enum: ['READY', 'FAULTY', 'PENDING', 'DISPATCHED', 'ON_SCENE', 'HOSPITAL_DROP', 'RETURNING'],
+    default: 'READY'
+  },
   wait_ticks: { type: Number, default: 0 }
 });
 

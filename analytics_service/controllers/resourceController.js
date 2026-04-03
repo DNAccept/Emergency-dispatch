@@ -1,8 +1,12 @@
+const mongoose = require('mongoose');
 const Station = require('../models/Station');
 const Personnel = require('../models/Personnel');
 
 // --- Station Operations ---
 exports.getStations = async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Database not connected. Please try again shortly.' });
+  }
   try {
     const stations = await Station.find();
     res.json(stations);
@@ -32,10 +36,16 @@ exports.updateStation = async (req, res) => {
 
 // --- Personnel Operations ---
 exports.getPersonnel = async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Database not connected. Please try again shortly.' });
+  }
   try {
     const { station_name, service_type } = req.query;
     let filter = {};
-    if (station_name) filter.station_name = station_name;
+    // Only filter by valid string station_name values
+    if (station_name && typeof station_name === 'string' && station_name.trim() !== '' && isNaN(station_name)) {
+      filter.station_name = station_name;
+    }
     if (service_type) filter.service_type = service_type;
     
     const staff = await Personnel.find(filter);
