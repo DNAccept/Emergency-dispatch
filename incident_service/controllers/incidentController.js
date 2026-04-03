@@ -94,7 +94,12 @@ exports.createIncident = async (req, res) => {
 
 exports.getOpenIncidents = async (req, res) => {
   try {
-    const incidents = await pool.query("SELECT * FROM incidents WHERE status = 'OPEN'");
+    // Return all active incidents (OPEN, DISPATCHED, ON_SCENE) — not just OPEN.
+    // Incidents get auto-dispatched immediately after creation, so filtering
+    // only by OPEN would make them disappear from the map instantly.
+    const incidents = await pool.query(
+      "SELECT * FROM incidents WHERE status != 'RESOLVED' ORDER BY reported_at DESC"
+    );
     res.json(incidents.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
