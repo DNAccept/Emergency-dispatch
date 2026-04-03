@@ -49,6 +49,7 @@ const App = ({ token }) => {
   const [activity,  setActivity]        = useState([]);
   const [typeBreakdown, setTypeBreak]   = useState({});
   const [loading,   setLoading]         = useState(true);
+  const [bedValue,  setBedValue]        = useState(null); // controlled slider value
   const jwt = token || localStorage.getItem('jwt');
 
   const fetchAll = async () => {
@@ -70,8 +71,13 @@ const App = ({ token }) => {
       }
       if (hRes.status === 'fulfilled' && hRes.value.ok) {
         const d = await hRes.value.json();
-        if (Array.isArray(d)) setHospitals(d);
+        if (Array.isArray(d)) {
+          setHospitals(d);
+          // Seed the slider with current occupied_beds if not yet set
+          if (d.length > 0) setBedValue(v => v === null ? d[0].occupied_beds : v);
+        }
       }
+      // 503 = DB still starting — swallow silently, will retry on next poll
       if (rtRes.status === 'fulfilled' && rtRes.value.ok) {
         const d = await rtRes.value.json();
         setRT(d);
@@ -261,36 +267,57 @@ const App = ({ token }) => {
           </div>
 
           {/* Hospital admin bed control */}
-          {isHospAdmin && managedStation && (
-            <div style={{ background: 'rgba(0,212,170,0.05)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: 3, padding: '1rem' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '0.75rem' }}>
-                Station Control: {managedStation}
+          {isHospAdmin && hospitals.length > 0 && (() => {
+            // Match by name (case-insensitive, partial) or fall back to first hospital
+            const target = hospitals.find(h =>
+              h.name.toLowerCase().includes((managedStation || '').toLowerCase()) ||
+              (managedStation || '').toLowerCase().includes(h.name.toLowerCase())
+            ) || hospitals[0];
+            const currentBeds = bedValue !== null ? bedValue : target.occupied_beds;
+            return (
+              <div style={{ background: 'rgba(0,212,170,0.05)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: 3, padding: '1rem' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '0.75rem' }}>
+                  Station Control: {target.name}
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Update Bed Occupancy</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <input
+                    type="range" min="0"
+                    max={target.total_beds || 200}
+                    value={currentBeds}
+                    onChange={(e) => setBedValue(parseInt(e.target.value))}
+                    onMouseUp={async (e) => {
+                      const val = parseInt(e.target.value);
+                      try {
+                        const r = await fetch(`${ANALYTICS_URL}/analytics/hospitals/update`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+                          body: JSON.stringify({ name: target.name, occupied_beds: val })
+                        });
+                        if (r.ok) fetchAll();
+                        else console.error('Bed update failed:', await r.text());
+                      } catch (err) { console.error('Bed update error:', err); }
+                    }}
+                    onTouchEnd={async (e) => {
+                      const val = parseInt(e.target.value);
+                      try {
+                        await fetch(`${ANALYTICS_URL}/analytics/hospitals/update`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+                          body: JSON.stringify({ name: target.name, occupied_beds: val })
+                        });
+                        fetchAll();
+                      } catch {}
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {currentBeds} / {target.total_beds} Beds
+                  </span>
+                </div>
               </div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Update Bed Occupancy</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <input
-                  type="range" min="0"
-                  max={hospitals.find(h => h.name === managedStation)?.total_beds || 200}
-                  value={hospitals.find(h => h.name === managedStation)?.occupied_beds || 0}
-                  onChange={async (e) => {
-                    const val = parseInt(e.target.value);
-                    try {
-                      await fetch(`${ANALYTICS_URL}/analytics/hospitals/update`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-                        body: JSON.stringify({ name: managedStation, occupied_beds: val })
-                      });
-                      fetchAll();
-                    } catch {}
-                  }}
-                  style={{ flex: 1 }}
-                />
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  {hospitals.find(h => h.name === managedStation)?.occupied_beds || 0} Beds
-                </span>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
