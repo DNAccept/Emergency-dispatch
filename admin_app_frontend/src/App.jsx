@@ -111,6 +111,8 @@ const App = ({ token }) => {
   const [editingVehicleForm, setEditingVehicleForm] = useState({ unit_name: '' });
   const [editingUser, setEditingUser] = useState(null);
   const [editStationValue, setEditStationValue] = useState('');
+  const [editingStationId, setEditingStationId] = useState(null);
+  const [editingStationForm, setEditingStationForm] = useState({ beds: 0, total_beds: 0 });
 
   useEffect(() => {
     if (jwt) {
@@ -185,9 +187,11 @@ const App = ({ token }) => {
       if (sRes.ok) {
         const sData = await sRes.json();
         if (Array.isArray(sData)) setStations(sData);
+      } else if (sRes.status === 503) {
+        console.warn('Analytics service is starting up (503)...');
       }
     } catch (err) { console.error('Analytics Stations API Error:', err); }
-
+ 
     // Fetch Personnel
     try {
       const pQuery = isSystemAdmin ? '' : `?station_name=${encodeURIComponent(managedStation)}&service_type=${isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire'}`;
@@ -195,17 +199,17 @@ const App = ({ token }) => {
       if (pRes.ok) {
         const pData = await pRes.json();
         if (Array.isArray(pData)) setPersonnel(pData);
+      } else if (pRes.status === 503) {
+        console.warn('Personnel service is starting up (503)...');
       }
     } catch (err) { console.error('Analytics Personnel API Error:', err); }
       
     // Fetch Users (System Admin Only)
     if (isSystemAdmin) {
       try {
-        console.log('System Admin role detected. Fetching full user registry...');
         const uRes = await fetch(`${AUTH_URL}/auth/users`, { headers: { 'Authorization': `Bearer ${jwt}` } });
         if (uRes.ok) {
           const uData = await uRes.json();
-          console.log(`Fetched ${uData.length || 0} users from database.`);
           if (Array.isArray(uData)) setUsers(uData);
         }
       } catch (err) { console.error('Auth Users API Error:', err); }
@@ -245,12 +249,17 @@ const App = ({ token }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
         body: JSON.stringify({
-          name: managedStation,
-          service_type: isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : 'Fire',
+          name: stationName || managedStation,
+          service_type: isHospitalAdmin ? 'Hospital' : isPoliceAdmin ? 'Police' : isFireAdmin ? 'Fire' : 'Hospital',
           ...newStats,
           readiness_level: newStats.readiness
         })
       });
+      if (res.status === 503) {
+        setStationStats(oldStats);
+        console.warn('Update failed: Service starting up (503)');
+        return;
+      }
       if (!res.ok) throw new Error('Update failed');
       setTimeout(fetchData, 1000);
     } catch (err) { 
@@ -260,6 +269,26 @@ const App = ({ token }) => {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const handleUpdateAnyStation = async (stationName, updates) => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch(`${ANALYTICS_URL}/analytics/stations/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+        body: JSON.stringify({
+          name: stationName,
+          ...updates
+        })
+      });
+      if (res.status === 503) {
+        console.warn('Global station update failed: 503');
+        return;
+      }
+      fetchData();
+    } catch (err) { console.error(err); alert('Failed to sync resources for ' + stationName); }
+    finally { setIsSyncing(false); }
   };
 
   const handleAddStaff = async (e) => {
@@ -677,10 +706,41 @@ const App = ({ token }) => {
                   <tbody>
                     {stations.map(s => (
                       <tr key={s._id}>
-                        <td>{s.name}</td>
+                        <td style={{ fontWeight: 600 }}>{s.name}</td>
                         <td style={{ fontSize: '0.7rem' }}>{s.service_type}</td>
                         <td style={{ fontFamily: 'var(--font-mono)' }}>{personnel.filter(p => p.station_name === s.name).length}</td>
-                        <td style={{ fontFamily: 'var(--font-mono)' }}>{s.beds || 0} / {s.total_beds || 0}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)' }}>
+                          {editingStationId === s._id ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <input 
+                                type="number" 
+                                value={editingStationForm.beds} 
+                                onChange={e => setEditingStationForm({...editingStationForm, beds: parseInt(e.target.value)})} 
+                                style={{ width: 45, fontSize: '0.75rem', padding: '0.1rem' }} 
+                              />
+                              <span>/</span>
+                              <input 
+                                type="number" 
+                                value={editingStationForm.total_beds} 
+                                onChange={e => setEditingStationForm({...editingStationForm, total_beds: parseInt(e.target.value)})} 
+                                style={{ width: 45, fontSize: '0.75rem', padding: '0.1rem' }} 
+                              />
+                              <button onClick={() => { handleUpdateAnyStation(s.name, editingStationForm); setEditingStationId(null); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 0.3rem', cursor: 'pointer' }}>✓</button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span>{s.beds || 0} / {s.total_beds || 0}</span>
+                              {isSystemAdmin && (
+                                <button 
+                                  onClick={() => { setEditingStationId(s._id); setEditingStationForm({ beds: s.beds || 0, total_beds: s.total_beds || 0 }); }} 
+                                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.65rem' }}
+                                >
+                                  ✎
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
